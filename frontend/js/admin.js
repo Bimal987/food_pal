@@ -3,8 +3,52 @@ import { renderNavbar, requireAdmin } from './auth.js';
 
 function el(id) { return document.getElementById(id); }
 
+function getAuthToken() {
+  return localStorage.getItem('token') || localStorage.getItem('authToken');
+}
+
+function showAuthRequiredModal(message) {
+  let modal = document.getElementById('adminAuthModal');
+  if (!modal) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div id="adminAuthModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" data-admin-auth-overlay></div>
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-6" role="dialog" aria-modal="true" aria-labelledby="adminAuthTitle">
+          <div class="flex items-start justify-between gap-4">
+            <h3 id="adminAuthTitle" class="font-display font-bold text-lg text-slate-900">Login Required</h3>
+            <button type="button" class="text-slate-400 hover:text-slate-600" aria-label="Close" data-admin-auth-close>
+              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+            </button>
+          </div>
+          <p id="adminAuthMessage" class="mt-3 text-sm text-slate-600"></p>
+          <div class="mt-6 flex items-center gap-3">
+            <a href="login.html" class="flex-1 text-center bg-slate-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors">Login</a>
+            <button type="button" class="flex-1 text-center bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors" data-admin-auth-close>Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrapper);
+    modal = document.getElementById('adminAuthModal');
+    const closeButtons = modal.querySelectorAll('[data-admin-auth-close]');
+    const overlay = modal.querySelector('[data-admin-auth-overlay]');
+    const closeModal = () => modal.classList.add('hidden');
+    closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
+    overlay.addEventListener('click', closeModal);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+  }
+  const msg = document.getElementById('adminAuthMessage');
+  if (msg) msg.textContent = message || 'Please login as admin to continue.';
+  modal.classList.remove('hidden');
+}
+
 let categories = [];
 let recipes = [];
+let allAdminRecipes = [];
+let visibleRecipes = [];
 let editingId = null;
 
 // --- Navigation & View Switching ---
@@ -47,9 +91,18 @@ function optionCats(selectedId) {
   return categories.map(c => `<option value="${c.id}" ${String(selectedId)===String(c.id)?'selected':''}>${c.name}</option>`).join('');
 }
 
-function renderRecipeRows() {
+function renderRecipeRows(list) {
   const tbody = el('recipesTbody');
-  tbody.innerHTML = recipes.map(r => `
+  if (!list.length) {
+    tbody.innerHTML = `
+      <tr class="border-b">
+        <td class="p-6 text-center text-slate-400" colspan="6">No recipes found.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = list.map(r => `
     <tr class="border-b transition hover:bg-slate-50">
       <td class="p-4">${r.id}</td>
       <td class="p-4 font-medium text-slate-900">${r.title}</td>
@@ -81,8 +134,43 @@ function renderRecipeRows() {
 async function loadRecipes() {
   try {
     recipes = await fetchWithAuth('/api/admin/recipes');
-    renderRecipeRows();
+    allAdminRecipes = Array.isArray(recipes) ? recipes.slice() : [];
+    visibleRecipes = allAdminRecipes.slice();
+    renderRecipeRows(visibleRecipes);
   } catch (e) { console.error(e); }
+}
+
+function debounce(fn, wait = 250) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function applyRecipeSearch() {
+  const input = document.querySelector("input[placeholder=\"Search recipes...\"]");
+  if (!input) return;
+  const q = (input.value || '').trim().toLowerCase();
+  if (!q) {
+    visibleRecipes = allAdminRecipes.slice();
+    renderRecipeRows(visibleRecipes);
+    return;
+  }
+
+  visibleRecipes = allAdminRecipes.filter(r => {
+    const title = String(r.title || '').toLowerCase();
+    const category = String(r.category_name || '').toLowerCase();
+    const cuisine = String(r.cuisine || '').toLowerCase();
+    const id = String(r.id || '');
+    return (
+      title.includes(q) ||
+      category.includes(q) ||
+      cuisine.includes(q) ||
+      id.includes(q)
+    );
+  });
+  renderRecipeRows(visibleRecipes);
 }
 
 async function deleteRecipe(id) {
@@ -144,6 +232,11 @@ function closeModal() {
 
 async function handleRecipeSubmit(e) {
   e.preventDefault();
+  const token = getAuthToken();
+  if (!token) {
+    showAuthRequiredModal('Please login as admin to create a recipe.');
+    return;
+  }
   const payload = {
     title: el('title').value.trim(),
     description: el('description').value.trim(),
@@ -169,6 +262,10 @@ async function handleRecipeSubmit(e) {
     await loadRecipes();
     await loadStats();
   } catch (err) {
+    if (err?.status === 401 || err?.status === 403 || /unauthorized/i.test(err.message || '')) {
+      showAuthRequiredModal('Session expired. Please login again.');
+      return;
+    }
     alert(err.message);
   }
 }
@@ -257,4 +354,10 @@ export async function initAdmin() {
 
   // Force default view to ensure title/classes match logic
   document.querySelector('[data-view="dashboard"]').click();
+
+  const searchInput = document.querySelector('input[placeholder="Search recipes..."]');
+  if (searchInput) {
+    searchInput.addEventListener('input', debounce(applyRecipeSearch, 250));
+  }
 }
+

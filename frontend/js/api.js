@@ -1,7 +1,7 @@
 export const API_BASE = 'http://localhost:5000';
 
 export async function fetchWithAuth(path, options = {}) {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || localStorage.getItem('authToken');
   const headers = options.headers ? { ...options.headers } : {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (!headers['Content-Type'] && options.body) headers['Content-Type'] = 'application/json';
@@ -14,7 +14,9 @@ export async function fetchWithAuth(path, options = {}) {
 
   if (!res.ok) {
     const message = (data && data.message) ? data.message : `Request failed (${res.status})`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
   }
   return data;
 }

@@ -1,5 +1,5 @@
-import { fetchWithAuth, getUser } from './api.js';
-import { renderNavbar, requireAuth } from './auth.js';
+import { fetchWithAuth } from './api.js';
+import { renderNavbar } from './auth.js';
 import { attachImageFallbacks, buildImageSources, normalizeImageUrl } from './image-utils.js';
 
 function getId() {
@@ -9,11 +9,17 @@ function getId() {
 
 function el(id) { return document.getElementById(id); }
 
-function updateGuestHints() {
-  const user = getUser();
+// Accept both token keys used across environments.
+function getAuthToken() {
+  return localStorage.getItem('token') || localStorage.getItem('authToken');
+}
+
+function updateFavoriteHint(isLoggedIn) {
   const favHint = el('favLoginHint');
   if (favHint) {
-    favHint.classList.toggle('hidden', !!user);
+    favHint.textContent = isLoggedIn
+      ? 'Tap the heart to save this recipe.'
+      : 'Log in to save recipes.';
   }
 }
 
@@ -94,14 +100,15 @@ async function loadRecipe() {
   }
 }
 
-let currentRating = 5;
+let currentRating = 0;
 
-function setStarSelection(value) {
-  currentRating = value;
+function setRatingUI(value) {
+  const safeValue = Math.max(0, Math.min(5, Number(value) || 0));
+  currentRating = safeValue;
   const buttons = document.querySelectorAll('#starPicker .star-btn');
   buttons.forEach(btn => {
     const v = parseInt(btn.dataset.value, 10);
-    if (v <= value) {
+    if (v <= safeValue) {
       btn.classList.remove('text-slate-300');
       btn.classList.add('text-amber-400');
     } else {
@@ -110,7 +117,7 @@ function setStarSelection(value) {
     }
   });
   const label = el('ratingLabel');
-  if (label) label.textContent = `${value} / 5 Stars`;
+  if (label) label.textContent = `${safeValue} / 5 Stars`;
 }
 
 function bindStarPicker() {
@@ -118,17 +125,18 @@ function bindStarPicker() {
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
       const v = parseInt(btn.dataset.value, 10);
-      setStarSelection(v);
+      setRatingUI(v);
     });
   });
-  setStarSelection(currentRating);
+  setRatingUI(0);
 }
 
 async function loadUserRating(recipeId) {
-  const user = getUser();
-  if (!user) {
+  const token = getAuthToken();
+  if (!token) {
     el('ratingBox').classList.add('hidden');
     el('loginHint').classList.remove('hidden');
+    setRatingUI(0);
     return;
   }
   el('ratingBox').classList.remove('hidden');
@@ -136,15 +144,20 @@ async function loadUserRating(recipeId) {
 
   try {
     const r = await fetchWithAuth(`/api/ratings/${recipeId}`);
-    if (r) {
-      setStarSelection(r.rating);
+    if (r && r.rating) {
+      setRatingUI(r.rating);
       el('review').value = r.review || '';
-      el('ratingStatus').textContent = 'Your rating loaded. You can update it.';
+      el('ratingStatus').textContent = 'You already rated this recipe. Use update.';
     } else {
+      setRatingUI(0);
       el('ratingStatus').textContent = 'No rating yet. Add one!';
     }
   } catch (err) {
-    // ignore
+    if (err?.status === 401 || err?.status === 403) {
+      el('ratingBox').classList.add('hidden');
+      el('loginHint').classList.remove('hidden');
+      setRatingUI(0);
+    }
   }
 }
 
@@ -167,7 +180,11 @@ async function submitRating(isUpdate) {
 }
 
 async function toggleFavorite() {
-  requireAuth();
+  const token = getAuthToken();
+  if (!token) {
+    showAuthRequiredPopup();
+    return;
+  }
   const id = getId();
   const btn = el('favBtn');
   btn.disabled = true;
@@ -176,42 +193,34 @@ async function toggleFavorite() {
     const isFav = btn.dataset.fav === 'true';
     if (isFav) {
       await fetchWithAuth(`/api/favorites/${id}`, { method: 'DELETE' });
-      btn.dataset.fav = 'false';
-      btn.innerHTML = `<svg class="h-6 w-6 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`;
-      btn.classList.replace('text-red-500', 'text-brand-600');
-      btn.classList.add('bg-white');
-      btn.classList.remove('bg-red-50');
+      renderFavoriteUI(false);
     } else {
       await fetchWithAuth(`/api/favorites/${id}`, { method: 'POST' });
-      btn.dataset.fav = 'true';
-      btn.innerHTML = `<svg class="h-6 w-6 text-red-500 fill-current transition-transform group-hover:scale-110" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg>`;
-      btn.classList.replace('text-brand-600', 'text-red-500');
-      btn.classList.add('bg-red-50');
-      btn.classList.remove('bg-white');
+      renderFavoriteUI(true);
     }
   } catch (err) {
-    alert(err.message);
+    if (err?.status === 401 || err?.status === 403 || /unauthorized/i.test(err.message || '')) {
+      showAuthRequiredPopup();
+    } else {
+      alert(err.message);
+    }
   } finally {
     btn.disabled = false;
   }
 }
 
 async function checkIfFavorite() {
-  const user = getUser();
-  if (!user) return;
+  const token = getAuthToken();
+  updateFavoriteHint(!!token);
+  if (!token) {
+    renderFavoriteUI(false);
+    return;
+  }
   const id = getId();
   try {
     const favs = await fetchWithAuth('/api/favorites');
     const found = favs.some(r => r.id === id);
-    const btn = el('favBtn');
-    btn.dataset.fav = found ? 'true' : 'false';
-    if(found) {
-        btn.innerHTML = `<svg class="h-6 w-6 text-red-500 fill-current transition-transform group-hover:scale-110" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg>`;
-        btn.classList.add('text-red-500', 'bg-red-50');
-        btn.classList.remove('text-brand-600', 'bg-white');
-    } else {
-        btn.innerHTML = `<svg class="h-6 w-6 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`;
-    }
+    renderFavoriteUI(found);
   } catch (e) {}
 }
 
@@ -263,7 +272,11 @@ function recoCard(r) {
     </div>
     <div class="flex-1 py-1">
         <h4 class="font-bold text-slate-800 line-clamp-1 group-hover:text-brand-600 transition-colors">${r.title}</h4>
-        <div class="text-xs text-slate-500 mt-1">${r.difficulty || 'Medium'} â€¢ ${r.cook_time} min</div>
+        <div class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+          <span class="difficulty">${r.difficulty || 'Medium'}</span>
+          <span class="separator" aria-hidden="true">&#8226;</span>
+          <span class="time">${r.cook_time} min</span>
+        </div>
         <div class="mt-2 flex items-center gap-1">
             <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">Score ${Math.round(r.score)}</span>
         </div>
@@ -285,7 +298,6 @@ async function loadRecommendations(recipeId) {
 
 export async function initRecipe() {
   renderNavbar();
-  updateGuestHints();
   bindStarPicker();
   el('favBtn').addEventListener('click', toggleFavorite);
   el('addRatingBtn').addEventListener('click', () => submitRating(false));
@@ -293,3 +305,59 @@ export async function initRecipe() {
   await loadRecipe();
   await checkIfFavorite();
 }
+
+function renderFavoriteUI(isSaved) {
+  const btn = el('favBtn');
+  const label = el('favText');
+  btn.dataset.fav = isSaved ? 'true' : 'false';
+  if (label) {
+    label.textContent = isSaved ? 'Saved to Favorites' : 'Add to Favorites';
+  }
+  if (isSaved) {
+    btn.innerHTML = `<svg class="h-6 w-6 text-red-500 fill-current transition-transform group-hover:scale-110" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 0 010-5.656z" clip-rule="evenodd" /></svg>`;
+    btn.classList.add('text-red-500', 'bg-red-50');
+    btn.classList.remove('text-brand-600', 'bg-white');
+  } else {
+    btn.innerHTML = `<svg class="h-6 w-6 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`;
+    btn.classList.add('text-brand-600', 'bg-white');
+    btn.classList.remove('text-red-500', 'bg-red-50');
+  }
+}
+function showAuthRequiredPopup() {
+  let modal = document.getElementById('authRequiredModal');
+  if (!modal) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div id="authRequiredModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" data-auth-overlay></div>
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-6" role="dialog" aria-modal="true" aria-labelledby="authRequiredTitle">
+          <div class="flex items-start justify-between gap-4">
+            <h3 id="authRequiredTitle" class="font-display font-bold text-lg text-slate-900">Login Required</h3>
+            <button type="button" class="text-slate-400 hover:text-slate-600" aria-label="Close" data-auth-close>
+              <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+            </button>
+          </div>
+          <p class="mt-3 text-sm text-slate-600">Please login or register to add to favorites.</p>
+          <div class="mt-6 flex items-center gap-3">
+            <a href="login.html" class="flex-1 text-center bg-slate-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors">Login</a>
+            <a href="register.html" class="flex-1 text-center bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors">Sign Up</a>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrapper);
+    modal = document.getElementById('authRequiredModal');
+    const close = modal.querySelector('[data-auth-close]');
+    const overlay = modal.querySelector('[data-auth-overlay]');
+    const closeModal = () => modal.classList.add('hidden');
+    close.addEventListener('click', closeModal);
+    overlay.addEventListener('click', closeModal);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+  }
+  modal.classList.remove('hidden');
+}
+
+
+

@@ -11,6 +11,7 @@ const ratingsRoutes = require('./routes/ratingsRoutes');
 const recoRoutes = require('./routes/recommendationsRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const ingredientsRoutes = require('./routes/ingredientsRoutes');
+const { ensureSeededIfEmpty } = require('../seed/seed-lib');
 
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
@@ -36,4 +37,18 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+async function startServer() {
+  try {
+    const result = await ensureSeededIfEmpty();
+    if (result?.seeded) {
+      console.log(`Auto-seeded recipes. Total recipes: ${result.total}`);
+    }
+  } catch (err) {
+    console.log('Auto-seed skipped:', err.message);
+  }
+
+  app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+}
+
+startServer();

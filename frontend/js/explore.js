@@ -13,12 +13,27 @@ let state = {
   limit: 10,
 };
 
+let allRecipes = [];
+let filteredRecipes = [];
+
 function qs(params) {
   const p = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
     if (v !== null && v !== undefined && String(v).trim() !== "") p.set(k, v);
   });
   return p.toString();
+}
+
+function normalizeText(value) {
+  return String(value || "").toLowerCase().trim();
+}
+
+function normalizeDifficulty(value) {
+  const v = normalizeText(value);
+  if (v === "med" || v === "medium") return "medium";
+  if (v === "easy") return "easy";
+  if (v === "hard") return "hard";
+  return "";
 }
 
 function recipeCard(r) {
@@ -80,7 +95,7 @@ async function loadCategories() {
     cats.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
 }
 
-async function loadRecipes() {
+function loadRecipes() {
   const grid = document.getElementById("recipesGrid");
   const status = document.getElementById("status");
   const prev = document.getElementById("prevBtn");
@@ -89,51 +104,130 @@ async function loadRecipes() {
   const prevBottom = document.getElementById("prevBtnBottom");
   const pageInfo = document.getElementById("pageInfo");
 
+  if (!allRecipes.length) {
+    status.textContent = "Loading...";
+    grid.innerHTML = "";
+    return;
+  }
+
+  const total = filteredRecipes.length;
+  const totalPages = Math.max(1, Math.ceil(total / state.limit));
+  const page = Math.min(state.page, totalPages);
+  const start = (page - 1) * state.limit;
+  const recipes = filteredRecipes.slice(start, start + state.limit);
+
+  if (!recipes.length) {
+      status.textContent = "No results found.";
+  } else {
+    status.textContent = "";
+  }
+  grid.innerHTML = recipes.map(recipeCard).join("");
+  attachImageFallbacks(grid);
+
+  pageInfo.textContent = `Page ${page} / ${totalPages} (Total: ${total})`;
+  if (prev) prev.disabled = page <= 1;
+  if (next) next.disabled = page >= totalPages;
+  if (nextBottom) nextBottom.disabled = page >= totalPages;
+  if (prevBottom) prevBottom.disabled = page <= 1;
+}
+
+async function ensureAllRecipes() {
+  const status = document.getElementById("status");
+  const grid = document.getElementById("recipesGrid");
   status.textContent = "Loading...";
   grid.innerHTML = "";
 
   try {
-    const data = await fetchWithAuth("/api/recipes?" + qs(state));
-    const pagination = data && data.pagination ? data.pagination : null;
-    const allRecipes = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.recipes)
-          ? data.recipes
+    const first = await fetchWithAuth("/api/recipes?" + qs({ page: 1, limit: 1000 }));
+    const pagination = first && first.pagination ? first.pagination : null;
+    const firstPage = Array.isArray(first)
+      ? first
+      : Array.isArray(first?.data)
+        ? first.data
+        : Array.isArray(first?.recipes)
+          ? first.recipes
           : [];
 
-    let recipes = allRecipes;
-    let page = state.page;
-    let total = allRecipes.length;
-    let totalPages = Math.max(1, Math.ceil(total / state.limit));
+    allRecipes = firstPage.slice();
 
-    if (pagination) {
-      recipes = allRecipes;
-      page = pagination.page;
-      total = pagination.total;
-      totalPages = pagination.totalPages;
-    } else {
-      const start = (state.page - 1) * state.limit;
-      recipes = allRecipes.slice(start, start + state.limit);
+    if (pagination && pagination.totalPages > 1) {
+      const pages = [];
+      for (let p = 2; p <= pagination.totalPages; p += 1) {
+        pages.push(fetchWithAuth("/api/recipes?" + qs({ page: p, limit: pagination.limit || 1000 })));
+      }
+      const results = await Promise.all(pages);
+      results.forEach((res) => {
+        const rows = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res?.recipes)
+              ? res.recipes
+              : [];
+        allRecipes = allRecipes.concat(rows);
+      });
     }
-
-    if (!recipes.length) {
-      status.textContent = "No results found.";
-    } else {
-      status.textContent = "";
-    }
-    grid.innerHTML = recipes.map(recipeCard).join("");
-    attachImageFallbacks(grid);
-
-    pageInfo.textContent = `Page ${page} / ${totalPages} (Total: ${total})`;
-    if (prev) prev.disabled = page <= 1;
-    if (next) next.disabled = page >= totalPages;
-    if (nextBottom) nextBottom.disabled = page >= totalPages;
-    if (prevBottom) prevBottom.disabled = page <= 1;
   } catch (err) {
     status.textContent = err.message;
   }
+}
+
+function applyFilters() {
+  const form = document.getElementById("filtersForm");
+  const search = document.getElementById("searchInput");
+  if (!form) return;
+
+  const searchText = normalizeText(search?.value || "");
+  const selectedCategory = normalizeText(form.category.value);
+  const selectedCuisine = normalizeText(form.cuisine.value);
+  const selectedDifficultyRaw = normalizeText(form.difficulty.value);
+  const selectedDifficulty = selectedDifficultyRaw === "any" ? "" : normalizeDifficulty(selectedDifficultyRaw);
+  const selectedVeg = normalizeText(form.veg_type.value);
+
+  state.q = searchText;
+  state.category = form.category.value;
+  state.cuisine = form.cuisine.value;
+  state.difficulty = form.difficulty.value;
+  state.veg_type = form.veg_type.value;
+  state.page = 1;
+
+  filteredRecipes = allRecipes.filter((r) => {
+    const title = normalizeText(r.title || r.name);
+    const cuisine = normalizeText(r.cuisine);
+    const categoryName = normalizeText(r.category_name || r.category?.name);
+    const categoryId = String(r.category_id || r.category?.id || "").toLowerCase();
+    const difficulty = normalizeDifficulty(r.difficulty);
+    const description = normalizeText(r.description || r.summary);
+    const ingredientsText = Array.isArray(r.ingredients)
+      ? normalizeText(r.ingredients.map((i) => i.name || i).join(" "))
+      : normalizeText(r.ingredients);
+
+    if (searchText) {
+      const haystack = `${title} ${ingredientsText} ${categoryName} ${cuisine} ${description}`.trim();
+      if (!haystack.includes(searchText)) return false;
+    }
+
+    if (selectedCategory) {
+      if (selectedCategory !== categoryId && selectedCategory !== categoryName) return false;
+    }
+
+    if (selectedCuisine) {
+      if (cuisine !== selectedCuisine) return false;
+    }
+
+    if (selectedDifficulty) {
+      if (difficulty !== selectedDifficulty) return false;
+    }
+
+    if (selectedVeg) {
+      const veg = normalizeText(r.veg_type);
+      if (veg !== selectedVeg) return false;
+    }
+
+    return true;
+  });
+
+  loadRecipes();
 }
 
 function scrollGridToTop() {
@@ -153,35 +247,16 @@ function bindUI() {
   const search = document.getElementById("searchInput");
 
   form.addEventListener("change", () => {
-    state.category = form.category.value;
-    state.cuisine = form.cuisine.value;
-    state.difficulty = form.difficulty.value;
-    state.veg_type = form.veg_type.value;
-    state.maxTime = form.maxTime.value;
-    state.page = 1;
-    loadRecipes();
+    applyFilters();
   });
 
-  // Handle Search Input Enter
-  search.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      state.q = search.value.trim();
-      state.page = 1;
-      loadRecipes();
-    }
+  search.addEventListener("input", () => {
+    applyFilters();
   });
 
   // Also update search state on change/blur if desired, but button is usually explicit
   document.getElementById("searchBtn").addEventListener("click", () => {
-    state.q = search.value.trim();
-    // Also grab other values just in case
-    state.category = form.category.value;
-    state.cuisine = form.cuisine.value;
-    state.difficulty = form.difficulty.value;
-    state.veg_type = form.veg_type.value;
-    state.maxTime = form.maxTime.value;
-    state.page = 1;
-    loadRecipes();
+    applyFilters();
   });
 
   const prevBtn = document.getElementById("prevBtn");
@@ -233,7 +308,7 @@ function bindUI() {
       category: "",
       page: 1,
     };
-    loadRecipes();
+    applyFilters();
   });
 }
 
@@ -251,5 +326,6 @@ export async function initExplore() {
   await loadCategories();
   initFromQuery(); // Grab ?q=...
   bindUI();
-  await loadRecipes();
+  await ensureAllRecipes();
+  applyFilters();
 }
