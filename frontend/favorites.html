@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Favorites - Food Pal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+             sans: ['Inter', 'sans-serif'],
+             display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+             brand: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 900: '#14532d' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>body { font-family: 'Inter', sans-serif; } .hero-bg { background-color: #f0fdf4; background-image: radial-gradient(#16a34a 0.5px, transparent 0.5px); background-size: 20px 20px; }</style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+  <header id="navbar" class="bg-white/80 backdrop-blur border-b sticky top-0 z-10"></header>
+  
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full animate-fade-in" style="animation: fadeIn 0.5s ease-out">
+    <div class="mb-8 flex items-center justify-between bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
+      <div>
+         <h1 class="text-3xl font-bold font-display text-slate-900">Your Favorites</h1>
+         <div id="status" class="text-sm text-slate-500 mt-1">Manage your saved collection.</div>
+      </div>
+      <div class="p-3 bg-brand-50 text-brand-600 rounded-full">
+         <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg>
+      </div>
+    </div>
+
+    <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+  </main>
+
+  <style> @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } </style>
+  <script type="module">import { initFavorites } from "./js/favorites.js"; initFavorites();</script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RecipeReco - Recipe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+  <header id="navbar" class="bg-white/90 backdrop-blur border-b sticky top-0 z-50"></header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
+    <div id="loading" class="text-center py-20 text-slate-500 font-medium animate-pulse">Loading recipe...</div>
+    
+    <div id="content" class="hidden animate-fade-in opacity-0" style="animation: fadeIn 0.5s forwards;">
+      
+      <!-- Breadcrumb -->
+      <nav class="text-sm text-slate-500 mb-6 flex items-center gap-2">
+        <a href="index.html" class="hover:text-brand-600 transition-colors">Home</a>
+        <span>/</span>
+        <span class="text-slate-800 font-medium">Recipe Details</span>
+      </nav>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <!-- Left Column: Image & Ingredients -->
+        <div class="lg:col-span-4 space-y-8">
+          <div class="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+             <img id="img" src="" class="w-full aspect-[4/3] object-cover rounded-xl hidden" alt="Recipe Image">
+             <div id="imgPlaceholder" class="w-full aspect-[4/3] bg-brand-50 rounded-xl flex items-center justify-center text-brand-200 hidden">
+               <svg class="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+             </div>
+          </div>
+
+          <!-- Ingredients Card -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h3 class="font-display font-bold text-xl text-slate-900 mb-4 pb-2 border-b border-slate-100">Ingredients</h3>
+            <ul id="ingredients" class="space-y-3 text-slate-700 text-sm leading-relaxed"></ul>
+          </div>
+
+          <!-- Meta Actions -->
+          <div class="bg-brand-50 rounded-2xl p-6 border border-brand-100">
+             <div class="flex items-center justify-between mb-4">
+               <div>
+                 <div class="text-xs font-bold text-brand-800 uppercase tracking-wide mb-1">Your Lists</div>
+                 <div class="text-sm text-brand-900">Save for later</div>
+               </div>
+               <button id="favBtn" class="bg-white text-brand-600 hover:text-red-500 p-3 rounded-full shadow-sm hover:shadow-md transition-all group">
+                 <svg class="h-6 w-6 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+               </button>
+             </div>
+             <p id="favLoginHint" class="text-xs text-brand-700/80">Logged in users can save favorites.</p>
+          </div>
+        </div>
+
+        <!-- Right Column: Details, Steps, Reviews -->
+        <div class="lg:col-span-8 space-y-10">
+           <!-- Header Info -->
+           <div>
+             <div class="flex flex-wrap items-center gap-3 text-sm font-medium mb-3">
+               <span id="cuisinebadge" class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Cuisine</span>
+               <span id="levelbadge" class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Difficulty</span>
+               <span id="vegbadge" class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Veg Type</span>
+             </div>
+             
+             <h1 id="title" class="text-3xl md:text-5xl font-display font-extrabold text-slate-900 mb-4 leading-tight"></h1>
+             <p id="desc" class="text-lg text-slate-600 leading-relaxed"></p>
+
+             <div class="flex items-center gap-8 mt-6 py-6 border-y border-slate-100">
+                <div class="flex items-center gap-3">
+                   <div class="p-3 bg-orange-50 text-orange-500 rounded-full">
+                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                   </div>
+                   <div>
+                     <span class="block text-xs font-bold text-slate-400 uppercase">Cook Time</span>
+                     <span id="time" class="font-display font-bold text-lg text-slate-900">-- min</span>
+                   </div>
+                </div>
+                <div class="flex items-center gap-3">
+                   <div class="p-3 bg-yellow-50 text-yellow-500 rounded-full">
+                     <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                   </div>
+                   <div>
+                     <span class="block text-xs font-bold text-slate-400 uppercase">Rating</span>
+                     <span id="avg" class="font-display font-bold text-lg text-slate-900">--</span>
+                   </div>
+                </div>
+             </div>
+           </div>
+
+           <!-- Instructions -->
+           <div>
+             <h2 class="font-display font-bold text-2xl text-slate-900 mb-6 flex items-center gap-2">
+               <span class="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-sm">📝</span> 
+               Instructions
+             </h2>
+             <div id="steps" class="prose prose-slate max-w-none text-slate-700"></div>
+           </div>
+
+           <!-- Ratings Section -->
+           <div class="bg-slate-50 rounded-2xl p-6 md:p-8 border border-slate-100">
+              <h3 class="font-display font-bold text-xl text-slate-900 mb-2">Rate this Recipe</h3>
+              <p class="text-slate-500 mb-6 text-sm">Share your experience to help others.</p>
+              
+              <div id="loginHint" class="hidden text-sm bg-white p-4 rounded-lg border border-slate-200 text-slate-600">
+                <a href="login.html" class="text-brand-600 font-bold hover:underline">Log in</a> to rate and review.
+              </div>
+
+              <div id="ratingBox" class="hidden space-y-4">
+                 <div class="flex items-center gap-2">
+                   <div id="starPicker" class="flex items-center gap-1" aria-label="Rating">
+                     <button type="button" data-value="1" class="star-btn text-slate-300 hover:text-amber-400 transition-colors" aria-label="1 star">
+                       <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                     </button>
+                     <button type="button" data-value="2" class="star-btn text-slate-300 hover:text-amber-400 transition-colors" aria-label="2 stars">
+                       <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                     </button>
+                     <button type="button" data-value="3" class="star-btn text-slate-300 hover:text-amber-400 transition-colors" aria-label="3 stars">
+                       <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                     </button>
+                     <button type="button" data-value="4" class="star-btn text-slate-300 hover:text-amber-400 transition-colors" aria-label="4 stars">
+                       <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                     </button>
+                     <button type="button" data-value="5" class="star-btn text-slate-300 hover:text-amber-400 transition-colors" aria-label="5 stars">
+                       <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                     </button>
+                   </div>
+                   <span id="ratingLabel" class="text-slate-400 text-sm font-medium">5 / 5 Stars</span>
+                 </div>
+                 <textarea id="review" rows="3" class="w-full border rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none text-sm" placeholder="Write a review (optional)..."></textarea>
+                 <div class="flex items-center justify-between">
+                    <div id="ratingStatus" class="text-sm font-medium text-slate-500"></div>
+                    <div class="flex gap-3">
+                       <button id="addRatingBtn" class="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors shadow-sm">Post Review</button>
+                       <button id="updateRatingBtn" class="bg-white border border-slate-200 text-slate-700 px-6 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors">Update</button>
+                    </div>
+                 </div>
+              </div>
+           </div>
+
+           <!-- Reviews List -->
+           <div class="bg-white rounded-2xl p-6 md:p-8 border border-slate-100">
+             <h3 class="font-display font-bold text-xl text-slate-900 mb-4">Reviews</h3>
+             <div id="reviewsEmpty" class="text-sm text-slate-400">No reviews yet.</div>
+             <div id="reviewsList" class="space-y-4"></div>
+           </div>
+
+           <!-- Recommendations -->
+           <div>
+              <h2 class="font-display font-bold text-2xl text-slate-900 mb-6">You Might Also Like</h2>
+              <div id="similar" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+           </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-slate-100 py-12 mt-12 text-center text-slate-400 text-sm">
+    &copy; 2026 Food Pal.
+  </footer>
+  
+  <style>
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+
+  <script type="module">import { initRecipe } from "./js/recipe.js"; initRecipe();</script>
+</body>
+
+  <script type="module">import { initRecipe } from "./js/recipe.js"; initRecipe();</script>
+</body>
+</html>

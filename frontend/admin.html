@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Food Pal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a', // Primary Green
+              700: '#15803d',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Outfit', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 flex h-screen overflow-hidden">
+  
+  <!-- Sidebar -->
+  <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 transition-all duration-300">
+    <div class="h-16 flex items-center px-6 border-b border-slate-800">
+      <a href="admin.html" class="font-display font-bold text-xl text-white flex items-center gap-2">
+        Food Pal<span class="text-brand-500">.</span>
+      </a>
+    </div>
+
+    <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-left font-medium active" data-view="dashboard">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+        Dashboard
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-left font-medium" data-view="recipes">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+        Recipes
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-left font-medium" data-view="categories">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+        Categories
+      </button>
+    </nav>
+
+    <div class="p-4 border-t border-slate-800">
+      <button id="logoutBtn" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors text-left font-medium">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col h-screen overflow-hidden">
+    <!-- Topbar -->
+    <header class="h-16 bg-white border-b flex items-center justify-between px-8">
+      <h1 id="pageTitle" class="text-xl font-bold font-display text-slate-800">Overview</h1>
+      <div class="flex items-center gap-4">
+        <div class="text-sm text-right hidden sm:block">
+          <div class="font-bold text-slate-800">Admin User</div>
+          <div class="text-slate-500 text-xs text-brand-600">Administrator</div>
+        </div>
+        <div class="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold border border-slate-200">
+          A
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Area -->
+    <main class="flex-1 overflow-auto p-8 bg-slate-50 relative">
+      
+      <!-- DASHBOARD VIEW -->
+      <div id="view-dashboard" class="view-section space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-slate-500 text-sm font-medium mb-1">Total Recipes</div>
+            <div class="text-3xl font-bold text-slate-900" id="stat-recipes">-</div>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-slate-500 text-sm font-medium mb-1">Total Users</div>
+            <div class="text-3xl font-bold text-slate-900" id="stat-users">-</div>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-slate-500 text-sm font-medium mb-1">Total Ratings</div>
+            <div class="text-3xl font-bold text-slate-900" id="stat-ratings">-</div>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+            <div class="text-slate-500 text-sm font-medium mb-1">Categories</div>
+            <div class="text-3xl font-bold text-slate-900" id="stat-categories">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECIPES VIEW -->
+      <div id="view-recipes" class="view-section hidden flex flex-col h-full">
+        <div class="flex justify-between mb-6">
+           <input type="text" placeholder="Search recipes..." class="border rounded-lg px-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-brand-500">
+           <button id="addRecipeBtn" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+             Add Recipe
+           </button>
+        </div>
+        <div class="bg-white border rounded-xl overflow-hidden shadow-sm flex-1">
+          <div class="overflow-auto h-full">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-50 text-slate-500 uppercase text-xs sticky top-0">
+                <tr>
+                  <th class="p-4 font-semibold border-b">ID</th>
+                  <th class="p-4 font-semibold border-b">Title</th>
+                  <th class="p-4 font-semibold border-b">Category</th>
+                  <th class="p-4 font-semibold border-b">Cuisine</th>
+                  <th class="p-4 font-semibold border-b">Stats</th>
+                  <th class="p-4 font-semibold border-b">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recipesTbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATEGORIES VIEW -->
+      <div id="view-categories" class="view-section hidden max-w-2xl">
+        <div class="bg-white border rounded-xl p-6 shadow-sm mb-6">
+          <h3 class="font-bold text-lg mb-4">Add New Category</h3>
+          <div class="flex gap-4">
+            <input id="newCategory" class="flex-1 border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Category name" />
+            <button id="createCatBtn" class="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">Add</button>
+          </div>
+        </div>
+        <div class="bg-white border rounded-xl overflow-hidden shadow-sm">
+           <div class="p-4 bg-slate-50 border-b font-medium text-slate-500 text-sm">Existing Categories</div>
+           <div id="categoriesList" class="divide-y divide-slate-100"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div id="modalOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all scale-95 opacity-0" id="modalContent">
+      <div class="p-6 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+        <h2 id="modalTitle" class="text-xl font-bold font-display">Add Recipe</h2>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="p-6">
+        <form id="recipeForm" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+             <div class="col-span-2">
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Title</label>
+               <input id="title" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" required />
+             </div>
+             <div>
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
+               <select id="recipeCategory" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none"></select>
+             </div>
+             <div>
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cuisine</label>
+               <input id="cuisine" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" />
+             </div>
+             <div>
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Difficulty</label>
+               <select id="difficulty" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none">
+                 <option>Easy</option>
+                 <option>Medium</option>
+                 <option>Hard</option>
+               </select>
+             </div>
+             <div>
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Dietary</label>
+               <select id="veg_type" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none">
+                 <option value="veg">Vegetarian</option>
+                 <option value="non-veg">Non-Vegetarian</option>
+               </select>
+             </div>
+             <div>
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Time (mins)</label>
+               <input id="cook_time" type="number" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" />
+             </div>
+             <div class="col-span-2">
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Image URL</label>
+               <input id="image_url" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://..." />
+             </div>
+             <div class="col-span-2">
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
+               <textarea id="description" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" rows="2"></textarea>
+             </div>
+             <div class="col-span-2">
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Steps</label>
+               <textarea id="steps" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" rows="3" placeholder="1) Step one..."></textarea>
+             </div>
+             <div class="col-span-2">
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Ingredients</label>
+               <input id="ingredients" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Comma separated..." />
+             </div>
+          </div>
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" id="cancelModalBtn" class="px-4 py-2 border rounded-lg text-slate-600 font-medium hover:bg-slate-50">Cancel</button>
+            <button type="submit" id="submitBtn" class="px-6 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800">Save Recipe</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">import { initAdmin } from "./js/admin.js"; initAdmin();</script>
+</body>
+</html>

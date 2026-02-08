@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Food Pal - Explore</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a', // Primary Green
+              700: '#15803d',
+              900: '#14532d',
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out',
+            'slide-up': 'slideUp 0.5s ease-out',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            slideUp: {
+              '0%': { transform: 'translateY(20px)', opacity: '0' },
+              '100%': { transform: 'translateY(0)', opacity: '1' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Outfit', sans-serif; }
+    .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5); }
+    .hero-pattern { background-color: #f0fdf4; background-image: radial-gradient(#16a34a 0.5px, transparent 0.5px); background-size: 10px 10px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 selection:bg-brand-500 selection:text-white antialiased">
+  <header id="navbar" class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50 transition-all duration-300"></header>
+
+  <main class="w-full px-4 sm:px-6 lg:px-8 py-10 animate-slide-up">
+    <div class="flex flex-col lg:flex-row gap-8 xl:gap-12">
+      <!-- Filters Sidebar -->
+      <aside class="lg:w-72 flex-shrink-0">
+        <div class="sticky top-24 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="font-bold text-lg font-display text-slate-900 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-brand-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17.293V11.414L4.293 6.707A1 1 0 014 6V3z" clip-rule="evenodd" />
+              </svg>
+              Filters
+            </h2>
+            <button id="resetBtn" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 px-2 py-1 rounded-md transition-colors">Reset</button>
+          </div>
+          
+          <form id="filtersForm" class="space-y-6">
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Search</label>
+              <input id="searchInput" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all" placeholder="Keywords..." />
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Category</label>
+              <select id="category" name="category" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all hover:bg-white">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cuisine</label>
+              <select id="cuisine" name="cuisine" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all hover:bg-white">
+                <option value="">All Cuisines</option>
+                <option>Nepali</option>
+                <option>Indian</option>
+                <option>Chinese</option>
+                <option>Italian</option>
+                <option>American</option>
+                <option>International</option>
+              </select>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Difficulty</label>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="cursor-pointer">
+                  <input type="radio" name="difficulty" value="" class="peer sr-only" checked>
+                  <div class="text-center text-sm py-2 border rounded-lg peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 hover:bg-slate-50 transition-all">Any</div>
+                </label>
+                <label class="cursor-pointer">
+                  <input type="radio" name="difficulty" value="Easy" class="peer sr-only">
+                  <div class="text-center text-sm py-2 border rounded-lg peer-checked:bg-green-500 peer-checked:text-white peer-checked:border-green-500 hover:bg-slate-50 transition-all">Easy</div>
+                </label>
+                <label class="cursor-pointer">
+                  <input type="radio" name="difficulty" value="Medium" class="peer sr-only">
+                  <div class="text-center text-sm py-2 border rounded-lg peer-checked:bg-yellow-500 peer-checked:text-white peer-checked:border-yellow-500 hover:bg-slate-50 transition-all">Med</div>
+                </label>
+                <label class="cursor-pointer">
+                  <input type="radio" name="difficulty" value="Hard" class="peer sr-only">
+                  <div class="text-center text-sm py-2 border rounded-lg peer-checked:bg-red-500 peer-checked:text-white peer-checked:border-red-500 hover:bg-slate-50 transition-all">Hard</div>
+                </label>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Dietary Preference</label>
+              <select id="veg_type" name="veg_type" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all hover:bg-white">
+                <option value="">Any</option>
+                <option value="veg">Vegetarian</option>
+                <option value="non-veg">Non-Vegetarian</option>
+              </select>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Max Time (Mins)</label>
+              <input id="maxTime" name="maxTime" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all" placeholder="e.g. 45" />
+            </div>
+            
+            <button id="searchBtn" type="button" class="w-full bg-slate-900 text-white py-2.5 rounded-lg font-bold hover:bg-slate-800 transition-colors">Apply Filters</button>
+          </form>
+        </div>
+      </aside>
+
+      <!-- Results Grid -->
+      <section class="flex-1 min-h-[500px]">
+        <div id="exploreHeader" class="flex items-center justify-between mb-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+          <div class="flex items-center gap-2">
+             <h2 class="text-xl font-bold font-display text-slate-900">Explore Recipes</h2>
+             <div id="status" class="text-sm font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full ml-2 empty:hidden"></div>
+          </div>
+          
+          <div class="flex gap-2">
+            <span id="pageInfo" class="text-sm font-medium self-center text-slate-600 min-w-[100px] text-center"></span>
+          </div>
+        </div>
+
+        <div id="recipesGrid" class="grid w-full grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
+           <!-- Recipes injected here -->
+        </div>
+
+        <div class="flex justify-between mt-6">
+          <button id="prevBtnBottom" class="flex items-center gap-1 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:shadow-[0_0_14px_rgba(239,68,68,0.75)] active:border-red-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            <span>Prev</span>
+          </button>
+          <div class="flex-1"></div>
+          <button id="nextBtnBottom" class="flex items-center gap-1 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:shadow-[0_0_14px_rgba(0,0,0,0.7)] active:border-slate-900">
+            <span>Next</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+  
+  <footer class="bg-white border-t border-slate-100 py-12 mt-12 text-center text-slate-400 text-sm">
+    &copy; 2026 Food Pal. All rights reserved.
+  </footer>
+
+  <script type="module">import { initExplore } from "./js/explore.js"; initExplore();</script>
+</body>
+</html>

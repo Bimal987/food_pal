@@ -1,0 +1,28 @@
+﻿usecaseDiagram
+actor Guest
+actor User
+actor Admin
+
+Admin --|> User
+
+Guest --> (Browse recipes)
+Guest --> (Search & filter recipes)
+Guest --> (View recipe details)
+Guest --> (View similar recipe recommendations)
+Guest --> (Browse categories)
+Guest --> (Browse ingredients)
+Guest --> (Find recipes by ingredients)
+Guest --> (Get ingredient-based recommendations)
+Guest --> (Register account)
+Guest --> (Login)
+
+User --> (Logout)
+User --> (View profile)
+User --> (Manage favorites)
+User --> (Rate & review recipes)
+User --> (View own ratings)
+User --> (View favorites)
+
+Admin --> (View admin stats)
+Admin --> (Manage recipes)
+Admin --> (Manage categories)
