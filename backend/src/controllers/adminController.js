@@ -33,7 +33,49 @@ async function createRecipe(req, res) {
     category_id, category_name, ingredients
   } = req.body || {};
 
-  if (!title) return res.status(400).json({ message: 'title is required' });
+  // Backend validation
+  if (!title || title.trim().length < 3) {
+    return res.status(400).json({ message: 'Title is required and must be at least 3 characters long' });
+  }
+
+  if (!description || description.trim().length < 10) {
+    return res.status(400).json({ message: 'Description is required and must be at least 10 characters long' });
+  }
+
+  if (!steps || steps.trim().length < 10) {
+    return res.status(400).json({ message: 'Steps are required and must be at least 10 characters long' });
+  }
+
+  const cookTimeNum = parseInt(cook_time || '0', 10);
+  if (!cookTimeNum || cookTimeNum <= 0) {
+    return res.status(400).json({ message: 'Cook time is required and must be a positive number' });
+  }
+
+  if (!image_url || image_url.trim().length === 0) {
+    return res.status(400).json({ message: 'Image URL is required' });
+  }
+
+  // Validate URL format
+  try {
+    new URL(image_url);
+  } catch {
+    return res.status(400).json({ message: 'Image URL must be a valid URL' });
+  }
+
+  const validDifficulties = ['Easy', 'Medium', 'Hard'];
+  if (difficulty && !validDifficulties.includes(difficulty)) {
+    return res.status(400).json({ message: 'Difficulty must be Easy, Medium, or Hard' });
+  }
+
+  const validVegTypes = ['veg', 'non-veg'];
+  if (veg_type && !validVegTypes.includes(veg_type)) {
+    return res.status(400).json({ message: 'Dietary type must be veg or non-veg' });
+  }
+
+  const ingList = Array.isArray(ingredients) ? ingredients : splitIngredients(ingredients || '');
+  if (!ingList || ingList.length === 0) {
+    return res.status(400).json({ message: 'At least one ingredient is required' });
+  }
 
   let catId = category_id ? parseInt(category_id, 10) : null;
   if (!catId && category_name) catId = await ensureCategory(category_name);
@@ -42,19 +84,18 @@ async function createRecipe(req, res) {
     INSERT INTO recipes (title, description, steps, cook_time, difficulty, cuisine, veg_type, image_url, category_id)
     VALUES (:title, :description, :steps, :cook_time, :difficulty, :cuisine, :veg_type, :image_url, :category_id)
   `, {
-    title,
-    description: description || null,
-    steps: steps || null,
-    cook_time: parseInt(cook_time || '0', 10),
-    difficulty: difficulty || null,
+    title: title.trim(),
+    description: description.trim(),
+    steps: steps.trim(),
+    cook_time: cookTimeNum,
+    difficulty: difficulty || 'Medium',
     cuisine: cuisine || null,
     veg_type: veg_type || 'veg',
-    image_url: image_url || null,
+    image_url: image_url.trim(),
     category_id: catId
   });
 
   const recipeId = result.insertId;
-  const ingList = Array.isArray(ingredients) ? ingredients : splitIngredients(ingredients || '');
   await replaceRecipeIngredients(recipeId, ingList);
 
   return res.status(201).json({ message: 'Recipe created', id: recipeId });
@@ -68,6 +109,49 @@ async function updateRecipe(req, res) {
     title, description, steps, cook_time, difficulty, cuisine, veg_type, image_url,
     category_id, category_name, ingredients
   } = req.body || {};
+
+  // Backend validation
+  if (title !== undefined && (!title || title.trim().length < 3)) {
+    return res.status(400).json({ message: 'Title must be at least 3 characters long' });
+  }
+
+  if (description !== undefined && (!description || description.trim().length < 10)) {
+    return res.status(400).json({ message: 'Description must be at least 10 characters long' });
+  }
+
+  if (steps !== undefined && (!steps || steps.trim().length < 10)) {
+    return res.status(400).json({ message: 'Steps must be at least 10 characters long' });
+  }
+
+  if (cook_time !== undefined) {
+    const cookTimeNum = parseInt(cook_time || '0', 10);
+    if (!cookTimeNum || cookTimeNum <= 0) {
+      return res.status(400).json({ message: 'Cook time must be a positive number' });
+    }
+  }
+
+  if (image_url !== undefined && (!image_url || image_url.trim().length === 0)) {
+    return res.status(400).json({ message: 'Image URL is required' });
+  }
+
+  // Validate URL format if provided
+  if (image_url) {
+    try {
+      new URL(image_url);
+    } catch {
+      return res.status(400).json({ message: 'Image URL must be a valid URL' });
+    }
+  }
+
+  const validDifficulties = ['Easy', 'Medium', 'Hard'];
+  if (difficulty && !validDifficulties.includes(difficulty)) {
+    return res.status(400).json({ message: 'Difficulty must be Easy, Medium, or Hard' });
+  }
+
+  const validVegTypes = ['veg', 'non-veg'];
+  if (veg_type && !validVegTypes.includes(veg_type)) {
+    return res.status(400).json({ message: 'Dietary type must be veg or non-veg' });
+  }
 
   let catId = category_id ? parseInt(category_id, 10) : null;
   if (!catId && category_name) catId = await ensureCategory(category_name);
@@ -86,14 +170,14 @@ async function updateRecipe(req, res) {
     WHERE id = :id
   `, {
     id,
-    title: title || null,
+    title: title ? title.trim() : null,
     description: description ?? null,
     steps: steps ?? null,
-    cook_time: parseInt(cook_time || '0', 10),
+    cook_time: cook_time ? parseInt(cook_time, 10) : null,
     difficulty: difficulty || null,
     cuisine: cuisine || null,
     veg_type: veg_type || 'veg',
-    image_url: image_url || null,
+    image_url: image_url ? image_url.trim() : null,
     category_id: catId
   });
 

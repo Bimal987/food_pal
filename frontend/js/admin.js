@@ -251,7 +251,47 @@ async function handleRecipeSubmit(e) {
   };
 
   try {
-    if (!payload.title) throw new Error('Title is required');
+    // Frontend validation
+    if (!payload.title || payload.title.length < 3) {
+      throw new Error('Title is required and must be at least 3 characters long');
+    }
+    
+    if (!payload.description || payload.description.length < 10) {
+      throw new Error('Description is required and must be at least 10 characters long');
+    }
+    
+    if (!payload.steps || payload.steps.length < 10) {
+      throw new Error('Steps are required and must be at least 10 characters long');
+    }
+    
+    if (!payload.cook_time || payload.cook_time <= 0) {
+      throw new Error('Cook time is required and must be a positive number');
+    }
+    
+    if (!payload.ingredients || payload.ingredients.length === 0) {
+      throw new Error('At least one ingredient is required');
+    }
+    
+    if (!payload.image_url) {
+      throw new Error('Image URL is required');
+    }
+    
+    // Validate URL format
+    try {
+      new URL(payload.image_url);
+    } catch {
+      throw new Error('Image URL must be a valid URL (e.g., https://example.com/image.jpg)');
+    }
+    
+    const validDifficulties = ['Easy', 'Medium', 'Hard'];
+    if (!validDifficulties.includes(payload.difficulty)) {
+      throw new Error('Difficulty must be Easy, Medium, or Hard');
+    }
+    
+    const validVegTypes = ['veg', 'non-veg'];
+    if (!validVegTypes.includes(payload.veg_type)) {
+      throw new Error('Dietary type must be veg or non-veg');
+    }
     
     if (editingId) {
       await fetchWithAuth(`/api/admin/recipes/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
