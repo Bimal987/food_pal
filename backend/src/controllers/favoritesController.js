@@ -1,9 +1,16 @@
 const pool = require('../config/db');
+const { validateNumber, sendValidationError } = require('../utils/validator');
+
+function parseRecipeId(value) {
+  const n = validateNumber(value);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
 
 async function addFavorite(req, res) {
   const userId = req.user.id;
-  const recipeId = parseInt(req.params.recipeId, 10);
-  if (!recipeId) return res.status(400).json({ message: 'Invalid recipeId' });
+  const recipeId = parseRecipeId(req.params.recipeId);
+  if (!recipeId) return sendValidationError(res, ['Invalid recipeId.']);
 
   try {
     await pool.query(
@@ -21,8 +28,8 @@ async function addFavorite(req, res) {
 
 async function removeFavorite(req, res) {
   const userId = req.user.id;
-  const recipeId = parseInt(req.params.recipeId, 10);
-  if (!recipeId) return res.status(400).json({ message: 'Invalid recipeId' });
+  const recipeId = parseRecipeId(req.params.recipeId);
+  if (!recipeId) return sendValidationError(res, ['Invalid recipeId.']);
 
   await pool.query('DELETE FROM favorites WHERE user_id = :userId AND recipe_id = :recipeId', { userId, recipeId });
   return res.json({ message: 'Removed from favorites' });

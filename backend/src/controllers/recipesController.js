@@ -1,5 +1,18 @@
 const pool = require('../config/db');
 const { getPagination } = require('../utils/pagination');
+const {
+  sanitizeText,
+  validateLength,
+  validateNumber,
+  hasSuspiciousInput,
+  sendValidationError
+} = require('../utils/validator');
+
+const DIFFICULTY_MAP = {
+  easy: 'Easy',
+  medium: 'Medium',
+  hard: 'Hard'
+};
 
 function buildInClause(name, values) {
   const ids = Array.from(new Set(values.map(v => parseInt(v, 10)).filter(n => Number.isInteger(n) && n > 0)));
@@ -11,16 +24,40 @@ function buildInClause(name, values) {
 
 async function listRecipes(req, res) {
   const { page, limit, offset } = getPagination(req.query);
-  const { q, cuisine, difficulty, veg_type, maxTime, category, sort } = req.query;
+  const q = sanitizeText(req.query.q || '');
+  const cuisine = sanitizeText(req.query.cuisine || '');
+  const difficultyRaw = sanitizeText(req.query.difficulty || '').toLowerCase();
+  const veg_type = sanitizeText(req.query.veg_type || '').toLowerCase();
+  const category = sanitizeText(req.query.category || '');
+  const sort = sanitizeText(req.query.sort || '');
+  const maxTime = req.query.maxTime;
+
+  // Query filters are validated too, because list endpoints are common abuse entry points.
+  const errors = [];
+  if (q && !validateLength(q, 1, 100)) errors.push('Search query must be between 1 and 100 characters.');
+  if (q && hasSuspiciousInput(q)) errors.push('Search query contains unsafe input.');
+  if (cuisine && hasSuspiciousInput(cuisine)) errors.push('Cuisine filter contains unsafe input.');
+  if (category && hasSuspiciousInput(category)) errors.push('Category filter contains unsafe input.');
+
+  if (difficultyRaw && !DIFFICULTY_MAP[difficultyRaw]) {
+    errors.push('Difficulty must be easy, medium, or hard.');
+  }
+
+  const parsedMaxTime = validateNumber(maxTime);
+  if (maxTime !== undefined && (!Number.isFinite(parsedMaxTime) || parsedMaxTime <= 0)) {
+    errors.push('maxTime must be a positive number.');
+  }
+
+  if (errors.length) return sendValidationError(res, errors);
 
   const where = [];
   const params = { limit, offset };
 
   if (q) { where.push('r.title LIKE :q'); params.q = `%${q}%`; }
   if (cuisine) { where.push('r.cuisine = :cuisine'); params.cuisine = cuisine; }
-  if (difficulty) { where.push('r.difficulty = :difficulty'); params.difficulty = difficulty; }
+  if (difficultyRaw) { where.push('r.difficulty = :difficulty'); params.difficulty = DIFFICULTY_MAP[difficultyRaw]; }
   if (veg_type) { where.push('r.veg_type = :veg_type'); params.veg_type = veg_type; }
-  if (maxTime) { where.push('r.cook_time <= :maxTime'); params.maxTime = parseInt(maxTime, 10) || 0; }
+  if (maxTime !== undefined) { where.push('r.cook_time <= :maxTime'); params.maxTime = parseInt(parsedMaxTime, 10); }
   if (category) {
     if (/^\d+$/.test(String(category))) {
       where.push('r.category_id = :categoryId');
@@ -111,7 +148,8 @@ async function getRecipeById(req, res) {
 
 async function listRecipesByIngredients(req, res) {
   const rawIds = (req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
-  const mode = (req.query.mode || 'all').toLowerCase() === 'any' ? 'any' : 'all';
+  const modeRaw = sanitizeText(req.query.mode || 'all').toLowerCase();
+  const mode = modeRaw === 'any' ? 'any' : 'all';
   const { page, limit, offset } = getPagination(req.query);
 
   const { ids, placeholders, params } = buildInClause('ing', rawIds);
@@ -173,7 +211,8 @@ async function listRecipesByIngredients(req, res) {
 
 async function getIngredientRecommendations(req, res) {
   const rawIds = (req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
-  const maxMissing = Math.min(Math.max(parseInt(req.query.maxMissing || '2', 10), 1), 5);
+  const maxMissingNum = validateNumber(req.query.maxMissing || '2');
+  const maxMissing = Math.min(Math.max(parseInt(maxMissingNum || 2, 10), 1), 5);
 
   const { ids, placeholders, params } = buildInClause('ing', rawIds);
   if (ids.length < 2) return res.json({ data: [] });

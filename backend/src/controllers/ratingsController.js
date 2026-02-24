@@ -1,8 +1,15 @@
 const pool = require('../config/db');
+const {
+  sanitizeText,
+  validateLength,
+  validateNumber,
+  hasSuspiciousInput,
+  sendValidationError
+} = require('../utils/validator');
 
 function clampRating(r) {
-  const n = parseInt(r, 10);
-  if (!n || n < 1 || n > 5) return null;
+  const n = validateNumber(r);
+  if (!Number.isInteger(n) || n < 1 || n > 5) return null;
   return n;
 }
 
@@ -21,10 +28,17 @@ async function getUserRating(req, res) {
 async function addRating(req, res) {
   const userId = req.user.id;
   const recipeId = parseInt(req.params.recipeId, 10);
-  const { rating, review } = req.body || {};
+  const rating = req.body?.rating;
+  const review = sanitizeText(req.body?.review || '');
   const r = clampRating(rating);
-  if (!recipeId) return res.status(400).json({ message: 'Invalid recipeId' });
-  if (!r) return res.status(400).json({ message: 'Rating must be 1-5' });
+
+  // Rating and review validation protects both data quality and stored-content safety.
+  const errors = [];
+  if (!recipeId) errors.push('Invalid recipeId.');
+  if (!r) errors.push('Rating must be an integer between 1 and 5.');
+  if (review && !validateLength(review, 0, 500)) errors.push('Review must be at most 500 characters.');
+  if (review && hasSuspiciousInput(review)) errors.push('Review contains unsafe input.');
+  if (errors.length) return sendValidationError(res, errors);
 
   try {
     await pool.query(
@@ -43,10 +57,17 @@ async function addRating(req, res) {
 async function updateRating(req, res) {
   const userId = req.user.id;
   const recipeId = parseInt(req.params.recipeId, 10);
-  const { rating, review } = req.body || {};
+  const rating = req.body?.rating;
+  const review = sanitizeText(req.body?.review || '');
   const r = clampRating(rating);
-  if (!recipeId) return res.status(400).json({ message: 'Invalid recipeId' });
-  if (!r) return res.status(400).json({ message: 'Rating must be 1-5' });
+
+  // Update path uses the same constraints so create/update behavior stays consistent.
+  const errors = [];
+  if (!recipeId) errors.push('Invalid recipeId.');
+  if (!r) errors.push('Rating must be an integer between 1 and 5.');
+  if (review && !validateLength(review, 0, 500)) errors.push('Review must be at most 500 characters.');
+  if (review && hasSuspiciousInput(review)) errors.push('Review contains unsafe input.');
+  if (errors.length) return sendValidationError(res, errors);
 
   const [result] = await pool.query(
     'UPDATE ratings SET rating = :rating, review = :review WHERE user_id = :userId AND recipe_id = :recipeId',
