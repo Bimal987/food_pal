@@ -1,5 +1,132 @@
 const pool = require('../config/db');
 const { splitIngredients } = require('../utils/normalize');
+const {
+  sanitizeText,
+  validateLength,
+  validateNumber,
+  hasSuspiciousInput,
+  sendValidationError
+} = require('../utils/validator');
+
+const VALID_DIFFICULTIES = {
+  easy: 'Easy',
+  medium: 'Medium',
+  hard: 'Hard'
+};
+const VALID_VEG_TYPES = new Set(['veg', 'non-veg']);
+
+function normalizeDifficulty(value) {
+  const key = sanitizeText(value).toLowerCase();
+  return VALID_DIFFICULTIES[key] || null;
+}
+
+function normalizeIngredients(ingredients) {
+  const rawList = Array.isArray(ingredients) ? ingredients : splitIngredients(ingredients || '');
+  return rawList
+    .map(item => sanitizeText(item).toLowerCase())
+    .filter(Boolean);
+}
+
+// Validates and sanitizes recipe payload so all admin write paths enforce identical rules.
+function validateRecipePayload(body, { partial = false } = {}) {
+  const errors = [];
+
+  const rawTitle = body?.title;
+  const rawDescription = body?.description;
+  const rawSteps = body?.steps;
+  const rawCuisine = body?.cuisine;
+  const rawImageUrl = body?.image_url;
+  const rawCategoryName = body?.category_name;
+  const rawDifficulty = body?.difficulty;
+  const rawVegType = body?.veg_type;
+  const rawCookTime = body?.cook_time;
+
+  const title = rawTitle !== undefined ? sanitizeText(rawTitle) : undefined;
+  const description = rawDescription !== undefined ? sanitizeText(rawDescription) : undefined;
+  const steps = rawSteps !== undefined ? sanitizeText(rawSteps) : undefined;
+  const cuisine = rawCuisine !== undefined ? sanitizeText(rawCuisine) : undefined;
+  const image_url = rawImageUrl !== undefined ? sanitizeText(rawImageUrl) : undefined;
+  const category_name = rawCategoryName !== undefined ? sanitizeText(rawCategoryName) : undefined;
+  const difficulty = rawDifficulty !== undefined ? normalizeDifficulty(rawDifficulty) : undefined;
+  const veg_type = rawVegType !== undefined ? sanitizeText(rawVegType).toLowerCase() : undefined;
+
+  if (!partial || rawTitle !== undefined) {
+    if (!title) errors.push('Title is required.');
+    else if (!validateLength(title, 3, 100)) errors.push('Title must be between 3 and 100 characters.');
+    if (title && hasSuspiciousInput(title)) errors.push('Title contains unsafe input.');
+  }
+
+  if (!partial || rawDescription !== undefined) {
+    if (!description) errors.push('Description is required.');
+    else if (!validateLength(description, 1, 1000)) errors.push('Description must be between 1 and 1000 characters.');
+    if (description && hasSuspiciousInput(description)) errors.push('Description contains unsafe input.');
+  }
+
+  if (!partial || rawSteps !== undefined) {
+    if (!steps) errors.push('Steps are required.');
+    else if (!validateLength(steps, 1, 4000)) errors.push('Steps must be at most 4000 characters.');
+    if (steps && hasSuspiciousInput(steps)) errors.push('Steps contain unsafe input.');
+  }
+
+  if (!partial || rawCookTime !== undefined) {
+    const parsedCookTime = validateNumber(rawCookTime);
+    if (!Number.isInteger(parsedCookTime) || parsedCookTime <= 0) {
+      errors.push('Cook time must be a positive number.');
+    }
+  }
+
+  if (rawDifficulty !== undefined && !difficulty) {
+    errors.push('Difficulty must be easy, medium, or hard.');
+  }
+
+  if (rawVegType !== undefined && !VALID_VEG_TYPES.has(veg_type)) {
+    errors.push('Dietary type must be veg or non-veg.');
+  }
+
+  if (!partial || rawImageUrl !== undefined) {
+    if (!image_url) errors.push('Image URL is required.');
+    else {
+      try {
+        // URL parsing blocks malformed or script-like links from being persisted.
+        new URL(image_url);
+      } catch {
+        errors.push('Image URL must be a valid URL.');
+      }
+    }
+  }
+
+  if (cuisine && hasSuspiciousInput(cuisine)) errors.push('Cuisine contains unsafe input.');
+  if (category_name && hasSuspiciousInput(category_name)) errors.push('Category name contains unsafe input.');
+
+  const parsedCategoryId = validateNumber(body?.category_id);
+  const category_id = parsedCategoryId === null ? null : parseInt(parsedCategoryId, 10);
+  if (body?.category_id !== undefined && (!Number.isInteger(category_id) || category_id <= 0)) {
+    errors.push('category_id must be a positive number.');
+  }
+
+  const ingredients = body?.ingredients !== undefined ? normalizeIngredients(body.ingredients) : undefined;
+  if (!partial || body?.ingredients !== undefined) {
+    if (!ingredients || !ingredients.length) errors.push('At least one ingredient is required.');
+    if ((ingredients || []).some(hasSuspiciousInput)) errors.push('Ingredients contain unsafe input.');
+  }
+
+  return {
+    errors,
+    values: {
+      title,
+      description,
+      steps,
+      cook_time: rawCookTime !== undefined ? parseInt(validateNumber(rawCookTime), 10) : undefined,
+      difficulty,
+      cuisine: cuisine || null,
+      veg_type,
+      image_url,
+      category_id,
+      category_name,
+      ingredients
+    }
+  };
+}
 
 async function ensureCategory(name) {
   if (!name) return null;
@@ -28,75 +155,29 @@ async function replaceRecipeIngredients(recipeId, ingredientsList) {
 }
 
 async function createRecipe(req, res) {
-  const {
-    title, description, steps, cook_time, difficulty, cuisine, veg_type, image_url,
-    category_id, category_name, ingredients
-  } = req.body || {};
+  const { errors, values } = validateRecipePayload(req.body, { partial: false });
+  if (errors.length) return sendValidationError(res, errors);
 
-  // Backend validation
-  if (!title || title.trim().length < 3) {
-    return res.status(400).json({ message: 'Title is required and must be at least 3 characters long' });
-  }
-
-  if (!description || description.trim().length < 10) {
-    return res.status(400).json({ message: 'Description is required and must be at least 10 characters long' });
-  }
-
-  if (!steps || steps.trim().length < 10) {
-    return res.status(400).json({ message: 'Steps are required and must be at least 10 characters long' });
-  }
-
-  const cookTimeNum = parseInt(cook_time || '0', 10);
-  if (!cookTimeNum || cookTimeNum <= 0) {
-    return res.status(400).json({ message: 'Cook time is required and must be a positive number' });
-  }
-
-  if (!image_url || image_url.trim().length === 0) {
-    return res.status(400).json({ message: 'Image URL is required' });
-  }
-
-  // Validate URL format
-  try {
-    new URL(image_url);
-  } catch {
-    return res.status(400).json({ message: 'Image URL must be a valid URL' });
-  }
-
-  const validDifficulties = ['Easy', 'Medium', 'Hard'];
-  if (difficulty && !validDifficulties.includes(difficulty)) {
-    return res.status(400).json({ message: 'Difficulty must be Easy, Medium, or Hard' });
-  }
-
-  const validVegTypes = ['veg', 'non-veg'];
-  if (veg_type && !validVegTypes.includes(veg_type)) {
-    return res.status(400).json({ message: 'Dietary type must be veg or non-veg' });
-  }
-
-  const ingList = Array.isArray(ingredients) ? ingredients : splitIngredients(ingredients || '');
-  if (!ingList || ingList.length === 0) {
-    return res.status(400).json({ message: 'At least one ingredient is required' });
-  }
-
-  let catId = category_id ? parseInt(category_id, 10) : null;
-  if (!catId && category_name) catId = await ensureCategory(category_name);
+  let catId = values.category_id;
+  if (!catId && values.category_name) catId = await ensureCategory(values.category_name);
 
   const [result] = await pool.query(`
     INSERT INTO recipes (title, description, steps, cook_time, difficulty, cuisine, veg_type, image_url, category_id)
     VALUES (:title, :description, :steps, :cook_time, :difficulty, :cuisine, :veg_type, :image_url, :category_id)
   `, {
-    title: title.trim(),
-    description: description.trim(),
-    steps: steps.trim(),
-    cook_time: cookTimeNum,
-    difficulty: difficulty || 'Medium',
-    cuisine: cuisine || null,
-    veg_type: veg_type || 'veg',
-    image_url: image_url.trim(),
+    title: values.title,
+    description: values.description,
+    steps: values.steps,
+    cook_time: values.cook_time,
+    difficulty: values.difficulty || 'Medium',
+    cuisine: values.cuisine,
+    veg_type: values.veg_type || 'veg',
+    image_url: values.image_url,
     category_id: catId
   });
 
   const recipeId = result.insertId;
-  await replaceRecipeIngredients(recipeId, ingList);
+  await replaceRecipeIngredients(recipeId, values.ingredients);
 
   return res.status(201).json({ message: 'Recipe created', id: recipeId });
 }
@@ -105,87 +186,49 @@ async function updateRecipe(req, res) {
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ message: 'Invalid recipe id' });
 
-  const {
-    title, description, steps, cook_time, difficulty, cuisine, veg_type, image_url,
-    category_id, category_name, ingredients
-  } = req.body || {};
+  const payload = req.body || {};
+  const mutableKeys = [
+    'title', 'description', 'steps', 'cook_time', 'difficulty', 'cuisine',
+    'veg_type', 'image_url', 'category_id', 'category_name', 'ingredients'
+  ];
+  const hasAnyUpdateField = mutableKeys.some((key) => Object.prototype.hasOwnProperty.call(payload, key));
+  if (!hasAnyUpdateField) return sendValidationError(res, ['No fields provided to update.']);
 
-  // Backend validation
-  if (title !== undefined && (!title || title.trim().length < 3)) {
-    return res.status(400).json({ message: 'Title must be at least 3 characters long' });
-  }
+  const { errors, values } = validateRecipePayload(payload, { partial: true });
+  if (errors.length) return sendValidationError(res, errors);
 
-  if (description !== undefined && (!description || description.trim().length < 10)) {
-    return res.status(400).json({ message: 'Description must be at least 10 characters long' });
-  }
-
-  if (steps !== undefined && (!steps || steps.trim().length < 10)) {
-    return res.status(400).json({ message: 'Steps must be at least 10 characters long' });
-  }
-
-  if (cook_time !== undefined) {
-    const cookTimeNum = parseInt(cook_time || '0', 10);
-    if (!cookTimeNum || cookTimeNum <= 0) {
-      return res.status(400).json({ message: 'Cook time must be a positive number' });
-    }
-  }
-
-  if (image_url !== undefined && (!image_url || image_url.trim().length === 0)) {
-    return res.status(400).json({ message: 'Image URL is required' });
-  }
-
-  // Validate URL format if provided
-  if (image_url) {
-    try {
-      new URL(image_url);
-    } catch {
-      return res.status(400).json({ message: 'Image URL must be a valid URL' });
-    }
-  }
-
-  const validDifficulties = ['Easy', 'Medium', 'Hard'];
-  if (difficulty && !validDifficulties.includes(difficulty)) {
-    return res.status(400).json({ message: 'Difficulty must be Easy, Medium, or Hard' });
-  }
-
-  const validVegTypes = ['veg', 'non-veg'];
-  if (veg_type && !validVegTypes.includes(veg_type)) {
-    return res.status(400).json({ message: 'Dietary type must be veg or non-veg' });
-  }
-
-  let catId = category_id ? parseInt(category_id, 10) : null;
-  if (!catId && category_name) catId = await ensureCategory(category_name);
+  let catId = values.category_id;
+  if (!catId && values.category_name) catId = await ensureCategory(values.category_name);
 
   const [result] = await pool.query(`
     UPDATE recipes
     SET title = COALESCE(:title, title),
-        description = :description,
-        steps = :steps,
-        cook_time = :cook_time,
-        difficulty = :difficulty,
-        cuisine = :cuisine,
-        veg_type = :veg_type,
-        image_url = :image_url,
-        category_id = :category_id
+        description = COALESCE(:description, description),
+        steps = COALESCE(:steps, steps),
+        cook_time = COALESCE(:cook_time, cook_time),
+        difficulty = COALESCE(:difficulty, difficulty),
+        cuisine = COALESCE(:cuisine, cuisine),
+        veg_type = COALESCE(:veg_type, veg_type),
+        image_url = COALESCE(:image_url, image_url),
+        category_id = COALESCE(:category_id, category_id)
     WHERE id = :id
   `, {
     id,
-    title: title ? title.trim() : null,
-    description: description ?? null,
-    steps: steps ?? null,
-    cook_time: cook_time ? parseInt(cook_time, 10) : null,
-    difficulty: difficulty || null,
-    cuisine: cuisine || null,
-    veg_type: veg_type || 'veg',
-    image_url: image_url ? image_url.trim() : null,
+    title: values.title ?? null,
+    description: values.description ?? null,
+    steps: values.steps ?? null,
+    cook_time: values.cook_time ?? null,
+    difficulty: values.difficulty ?? null,
+    cuisine: values.cuisine ?? null,
+    veg_type: values.veg_type ?? null,
+    image_url: values.image_url ?? null,
     category_id: catId
   });
 
   if (result.affectedRows === 0) return res.status(404).json({ message: 'Recipe not found' });
 
-  const ingList = Array.isArray(ingredients) ? ingredients : splitIngredients(ingredients || '');
-  if (ingList.length) {
-    await replaceRecipeIngredients(id, ingList);
+  if (values.ingredients && values.ingredients.length) {
+    await replaceRecipeIngredients(id, values.ingredients);
   }
 
   return res.json({ message: 'Recipe updated' });
@@ -202,8 +245,13 @@ async function deleteRecipe(req, res) {
 }
 
 async function createCategory(req, res) {
-  const { name } = req.body || {};
-  if (!name) return res.status(400).json({ message: 'name is required' });
+  const name = sanitizeText(req.body?.name || '');
+  const errors = [];
+  if (!name) errors.push('name is required.');
+  if (name && !validateLength(name, 2, 120)) errors.push('Category name must be between 2 and 120 characters.');
+  if (name && hasSuspiciousInput(name)) errors.push('Category name contains unsafe input.');
+  if (errors.length) return sendValidationError(res, errors);
+
   try {
     await pool.query('INSERT INTO categories (name) VALUES (:name)', { name });
     return res.status(201).json({ message: 'Category created' });
@@ -217,9 +265,13 @@ async function createCategory(req, res) {
 
 async function updateCategory(req, res) {
   const id = parseInt(req.params.id, 10);
-  const { name } = req.body || {};
-  if (!id) return res.status(400).json({ message: 'Invalid category id' });
-  if (!name) return res.status(400).json({ message: 'name is required' });
+  const name = sanitizeText(req.body?.name || '');
+  const errors = [];
+  if (!id) errors.push('Invalid category id.');
+  if (!name) errors.push('name is required.');
+  if (name && !validateLength(name, 2, 120)) errors.push('Category name must be between 2 and 120 characters.');
+  if (name && hasSuspiciousInput(name)) errors.push('Category name contains unsafe input.');
+  if (errors.length) return sendValidationError(res, errors);
 
   const [result] = await pool.query('UPDATE categories SET name = :name WHERE id = :id', { id, name });
   if (result.affectedRows === 0) return res.status(404).json({ message: 'Category not found' });
