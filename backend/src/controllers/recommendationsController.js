@@ -1,16 +1,66 @@
 const pool = require('../config/db');
 
-async function getRecommendations(req, res) {
-  const recipeId = parseInt(req.params.recipeId, 10);
-  if (!recipeId) return res.status(400).json({ message: 'Invalid recipeId' });
-  const userId = req.user && req.user.id ? req.user.id : null;
+// Keep ML influence bounded so heuristic/personal signals still steer ranking.
+const ML_WEIGHT = 6;
+const DEFAULT_LIMIT = 5;
+
+function isMissingTableError(err) {
+  return err && err.code === 'ER_NO_SUCH_TABLE';
+}
+
+async function fetchLatestModelVersion() {
+  try {
+    const [rows] = await pool.query(
+      'SELECT model_version FROM model_runs ORDER BY trained_at DESC LIMIT 1'
+    );
+    return rows.length ? rows[0].model_version : null;
+  } catch (err) {
+    // Allows zero-downtime rollout before migration/training is complete.
+    if (isMissingTableError(err)) return null;
+    throw err;
+  }
+}
+
+async function fetchMlSimilarities(recipeId, modelVersion) {
+  if (!modelVersion) return [];
+
+  try {
+    const [rows] = await pool.query(`
+      SELECT similar_item_id AS recipe_id, score
+      FROM model_item_similarities
+      WHERE item_id = :recipeId AND model_version = :modelVersion
+      ORDER BY score DESC
+      LIMIT 200
+    `, { recipeId, modelVersion });
+    return rows;
+  } catch (err) {
+    // Recommendation endpoint must remain available even if ML artifacts are absent.
+    if (isMissingTableError(err)) return [];
+    throw err;
+  }
+}
+
+function mapRecommendation(rec) {
+  return {
+    id: rec.id,
+    title: rec.title,
+    cook_time: rec.cook_time,
+    difficulty: rec.difficulty,
+    cuisine: rec.cuisine,
+    image_url: rec.image_url,
+    score: rec.score
+  };
+}
+
+async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
+  const useMlReco = String(process.env.USE_ML_RECO || 'true').toLowerCase() !== 'false';
 
   // target recipe
   const [targetRows] = await pool.query(
     'SELECT id, cuisine, difficulty, cook_time FROM recipes WHERE id = :id',
     { id: recipeId }
   );
-  if (!targetRows.length) return res.status(404).json({ message: 'Recipe not found' });
+  if (!targetRows.length) return null;
   const target = targetRows[0];
 
   const [targetIngRows] = await pool.query(`
@@ -43,7 +93,7 @@ async function getRecommendations(req, res) {
     ORDER BY r.id
   `, { id: recipeId });
 
-  // group by recipe
+  // We build a full candidate map once so all signals can be fused consistently.
   const map = new Map();
   for (const row of rows) {
     if (!map.has(row.id)) {
@@ -55,10 +105,22 @@ async function getRecommendations(req, res) {
         cuisine: row.cuisine,
         image_url: row.image_url,
         ingredients: new Set(),
-        cf_score: 0
+        cf_score: 0,
+        ml_score: 0
       });
     }
     if (row.ingredient_name) map.get(row.id).ingredients.add(row.ingredient_name);
+  }
+
+  if (useMlReco) {
+    // Latest version avoids stale pointers and keeps serving behavior deterministic.
+    const modelVersion = await fetchLatestModelVersion();
+    const mlRows = await fetchMlSimilarities(recipeId, modelVersion);
+    for (const row of mlRows) {
+      if (map.has(row.recipe_id)) {
+        map.get(row.recipe_id).ml_score = Number(row.score) * ML_WEIGHT;
+      }
+    }
   }
 
   // Collaborative Signal: "People who liked this also liked..."
@@ -74,18 +136,8 @@ async function getRecommendations(req, res) {
 
   for (const row of cfRows) {
     if (map.has(row.recipe_id)) {
-      // Boost existing candidate
-      map.get(row.recipe_id).cf_score = row.overlap * 3; // Weight CF strong
-    } else {
-      // Optionally fetch full details for CF-only matches?
-      // For now, we only boost if it's already in the "candidate set" (share ingredients/cuisine etc)
-      // OR we could add it. But 'rows' query gets ALL recipes except current? 
-      // PRO TIP: 'rows' query in original code only gets candidates?
-      // actually original 'rows' query does "LEFT JOIN ingredients ... WHERE r.id <> :id".
-      // It basically selects ALL recipes (since left join and no other filter?).
-      // Let's check original query.
-      // "FROM recipes r ... WHERE r.id <> :id".
-      // YES, it fetches ALL recipes. So map has everything.
+      // Co-ratings are sparse but high-signal, so they get a stronger multiplier.
+      map.get(row.recipe_id).cf_score = row.overlap * 3;
     }
   }
 
@@ -101,19 +153,20 @@ async function getRecommendations(req, res) {
       if (targetIngs.has(ing)) score += 1; // Content overlap
     }
     
-    // Add CF Score
+    // Add learned + collaborative evidence after content priors.
     if (rec.cf_score) score += rec.cf_score;
+    if (rec.ml_score) score += rec.ml_score;
 
-    // Personalization: exclude or adjust based on user's ratings
+    // Explicit negative feedback should dominate to avoid repeat bad experiences.
     if (userRatingsMap.size) {
       const userRating = userRatingsMap.get(rec.id);
       if (typeof userRating === 'number') {
-        if (userRating <= 2) continue; // don't recommend recipes the user disliked
+        if (userRating <= 2) continue;
         if (userRating === 3) score -= 1;
         if (userRating >= 4) score += 2;
       }
       if (typeof targetUserRating === 'number' && targetUserRating <= 2) {
-        // If user disliked the target recipe, dampen similarity-only signals
+        // If target itself was disliked, reduce confidence in "similar-to-target" signals.
         score -= 2;
       }
     }
@@ -122,16 +175,76 @@ async function getRecommendations(req, res) {
   }
 
   scored.sort((a, b) => b.score - a.score);
-  const top = scored.slice(0, 5).map(r => ({
-    id: r.id,
-    title: r.title,
-    cook_time: r.cook_time,
-    difficulty: r.difficulty,
-    image_url: r.image_url,
-    score: r.score
-  }));
+  const top = scored.slice(0, limit).map(mapRecommendation);
+
+  return top;
+}
+
+async function findTopPickSeedRecipeId(userId) {
+  const [highRatings] = await pool.query(`
+    SELECT recipe_id
+    FROM ratings
+    WHERE user_id = :userId AND rating >= 4
+    ORDER BY rating DESC, created_at DESC
+    LIMIT 1
+  `, { userId });
+  if (highRatings.length) return highRatings[0].recipe_id;
+
+  const [favoriteRows] = await pool.query(`
+    SELECT recipe_id
+    FROM favorites
+    WHERE user_id = :userId
+    ORDER BY created_at DESC
+    LIMIT 1
+  `, { userId });
+  if (favoriteRows.length) return favoriteRows[0].recipe_id;
+
+  try {
+    const [eventRows] = await pool.query(`
+      SELECT recipe_id
+      FROM user_events
+      WHERE user_id = :userId
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, { userId });
+    if (eventRows.length) return eventRows[0].recipe_id;
+  } catch (err) {
+    if (!isMissingTableError(err)) throw err;
+  }
+
+  return null;
+}
+
+async function getRecommendations(req, res) {
+  const recipeId = parseInt(req.params.recipeId, 10);
+  if (!recipeId) return res.status(400).json({ message: 'Invalid recipeId' });
+  const userId = req.user && req.user.id ? req.user.id : null;
+
+  const top = await buildRecommendations(recipeId, userId, DEFAULT_LIMIT);
+  if (top === null) return res.status(404).json({ message: 'Recipe not found' });
 
   return res.json(top);
 }
 
-module.exports = { getRecommendations };
+async function getTopPick(req, res) {
+  const userId = req.user && req.user.id ? req.user.id : null;
+  if (!userId) return res.status(401).json({ message: 'Login required' });
+
+  const seedRecipeId = await findTopPickSeedRecipeId(userId);
+  if (!seedRecipeId) {
+    return res.status(404).json({ message: 'Not enough history for personalized top pick' });
+  }
+
+  const picks = await buildRecommendations(seedRecipeId, userId, 1);
+  if (!picks || !picks.length) {
+    return res.status(404).json({ message: 'No top pick found yet' });
+  }
+
+  return res.json({
+    ...picks[0],
+    seed_recipe_id: seedRecipeId,
+    personalized: true
+  });
+}
+
+module.exports = { getRecommendations, getTopPick };
