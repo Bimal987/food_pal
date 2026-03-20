@@ -2,6 +2,58 @@ import { fetchWithAuth } from "./api.js";
 import { renderNavbar } from "./auth.js";
 import { attachImageFallbacks, buildImageSources, normalizeImageUrl } from "./image-utils.js";
 
+function getAuthToken() {
+  return localStorage.getItem('token') || localStorage.getItem('authToken');
+}
+
+function applyHomeVisibility(isLoggedIn) {
+  const featured = document.getElementById('featuredSection');
+  const trending = document.getElementById('trendingSection');
+  const latest = document.getElementById('latestSection');
+  const main = document.getElementById('homeSections');
+  const hero = document.getElementById('heroSection');
+  const footer = document.getElementById('siteFooter');
+  const body = document.body;
+
+  const targets = [featured, trending, latest].filter(Boolean);
+  targets.forEach((section) => section.classList.toggle('hidden', !isLoggedIn));
+
+  if (body) {
+    body.classList.toggle('user-home', isLoggedIn);
+  }
+
+  // For guests, hide the recipe-section container completely to avoid empty layout space.
+  if (main) {
+    main.classList.toggle('hidden', !isLoggedIn);
+    main.classList.toggle('py-12', isLoggedIn);
+    main.classList.toggle('py-0', !isLoggedIn);
+  }
+
+  // Let hero fill leftover viewport in guest mode so footer sits right below without a gray bar gap.
+  if (hero) {
+    hero.classList.toggle('flex-1', !isLoggedIn);
+  }
+
+  // Footer should still stick naturally for logged-in long pages, but remain attached under hero for guest.
+  if (footer) {
+    footer.classList.toggle('mt-auto', !isLoggedIn);
+  }
+}
+
+function setFeaturedCopy(personalized) {
+  const title = document.getElementById('featuredTitle');
+  const subtitle = document.getElementById('featuredSubtitle');
+  if (!title || !subtitle) return;
+
+  if (personalized) {
+    title.textContent = 'Top Pick For You';
+    subtitle.textContent = 'Chosen from your recent tastes and ratings.';
+  } else {
+    title.textContent = 'Featured Today';
+    subtitle.textContent = "Our editors' top pick for you.";
+  }
+}
+
 // Reusable card for grid
 function recipeCard(r) {
   const imageUrl = normalizeImageUrl(r.image_url);
@@ -36,11 +88,12 @@ function recipeCard(r) {
 }
 
 // Featured Hero Card
-function featuredCard(r) {
+function featuredCard(r, opts = {}) {
     const imageUrl = normalizeImageUrl(r.image_url);
     const imageSources = buildImageSources({ url: imageUrl, title: r.title, id: r.id, width: 1200, height: 800 });
+    const badgeLabel = opts.badgeLabel || 'Recipe of the Day';
     return `
-    <div class="relative rounded-3xl overflow-hidden shadow-2xl group h-[500px]">
+    <div class="relative rounded-3xl overflow-hidden shadow-2xl group h-[360px] md:h-[420px]">
         ${imageSources.length 
             ? `<img src="${imageSources[0]}" data-src="${imageUrl || ""}" data-title="${r.title}" data-id="${r.id}" data-w="1200" data-h="800" data-fallback="recipe" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />`
             : `<div class="absolute inset-0 bg-brand-100 flex items-center justify-center text-brand-300"><svg class="w-32 h-32" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>`
@@ -48,7 +101,7 @@ function featuredCard(r) {
         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
         
         <div class="absolute bottom-0 left-0 p-8 md:p-12 w-full md:w-2/3 text-white">
-            <span class="bg-brand-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 inline-block">Recipe of the Day</span>
+            <span class="bg-brand-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 inline-block">${badgeLabel}</span>
             <h3 class="text-4xl md:text-5xl font-display font-extrabold mb-4 leading-tight group-hover:text-brand-300 transition-colors">${r.title}</h3>
             
             <div class="flex flex-wrap gap-4 text-sm font-medium text-slate-200 mb-8">
@@ -74,18 +127,36 @@ function featuredCard(r) {
 }
 
 async function loadFeatured() {
-    const el = document.getElementById('featured');
+    const container = document.getElementById('featured');
+    const token = getAuthToken();
+
+    if (token) {
+        try {
+            const topPick = await fetchWithAuth('/api/recommendations/top-pick');
+            if (topPick && topPick.id) {
+                setFeaturedCopy(true);
+                container.innerHTML = featuredCard(topPick, { badgeLabel: 'Top Pick For You' });
+                attachImageFallbacks(container);
+                return;
+            }
+        } catch (e) {
+            // For cold-start users we intentionally fall back to non-personalized featured content.
+            if (e?.status !== 401 && e?.status !== 404) console.error(e);
+        }
+    }
+
+    setFeaturedCopy(false);
     try {
         const data = await fetchWithAuth('/api/recipes?limit=1&sort=random');
         if(data.data && data.data.length) {
-            el.innerHTML = featuredCard(data.data[0]);
-            attachImageFallbacks(el);
+            container.innerHTML = featuredCard(data.data[0]);
+            attachImageFallbacks(container);
         } else {
-            el.innerHTML = `<div class="p-8 text-center text-slate-500">No featured recipes today.</div>`;
+            container.innerHTML = `<div class="p-8 text-center text-slate-500">No featured recipes today.</div>`;
         }
     } catch(e) {
         console.error(e);
-        el.innerHTML = `<div class="p-4 text-red-500">Failed to load content.</div>`;
+        container.innerHTML = `<div class="p-4 text-red-500">Failed to load content.</div>`;
     }
 }
 
@@ -119,11 +190,16 @@ function bindSearch() {
 export async function initHome() {
   renderNavbar();
   bindSearch();
-  
-  // Parallel fetch for speed
+
+  const isLoggedIn = !!getAuthToken();
+  applyHomeVisibility(isLoggedIn);
+
+  if (!isLoggedIn) return;
+
+  // Parallel fetch for speed in authenticated home experience.
   await Promise.all([
-      loadFeatured(),
-      loadPopular(),
-      loadLatest()
+    loadFeatured(),
+    loadPopular(),
+    loadLatest()
   ]);
 }
