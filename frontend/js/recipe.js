@@ -173,7 +173,17 @@ async function submitRating(isUpdate) {
       body: JSON.stringify({ rating, review })
     });
     el('ratingStatus').textContent = isUpdate ? 'Rating updated.' : 'Rating added.';
-    await loadRecipe(); // refresh avg
+
+    // Keep UX explicit: after first post, clear the form so users know submit succeeded.
+    if (!isUpdate) {
+      setRatingUI(0);
+      el('review').value = '';
+    }
+
+    // Refresh only the sections that actually changed without re-populating the form.
+    const recipe = await fetchWithAuth(`/api/recipes/${id}`);
+    el('avg').textContent = recipe.avg_rating ? `${recipe.avg_rating} (${recipe.ratings_count})` : 'Not rated';
+    await loadRatingsList(id);
   } catch (err) {
     el('ratingStatus').textContent = err.message;
   }

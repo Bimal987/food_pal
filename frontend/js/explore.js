@@ -10,7 +10,7 @@ let state = {
   maxTime: "",
   category: "",
   page: 1,
-  limit: 10,
+  limit: 9,
 };
 
 let allRecipes = [];
