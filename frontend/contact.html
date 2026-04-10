@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Us - Food Pal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+             sans: ['Inter', 'sans-serif'],
+             display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+             brand: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 900: '#14532d' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/tailwind.css">
+  <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-[#F5F1E8] text-slate-900 min-h-screen flex flex-col">
+  <header id="navbar" class="bg-white/80 backdrop-blur border-b border-white/60 sticky top-0 z-10"></header>
+
+  <main class="flex-1 user-shell mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 w-full animate-fade-in" style="animation: fadeIn 0.5s ease-out">
+    <section class="dashboard-contact-section">
+      <div class="dashboard-contact-heading">
+        <h1 class="dashboard-section-title">Contact Us</h1>
+        <p>We'd love to hear from you!</p>
+      </div>
+      <div class="dashboard-contact-card">
+        <div class="dashboard-contact-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6.75A2.75 2.75 0 016.75 4h10.5A2.75 2.75 0 0120 6.75v10.5A2.75 2.75 0 0117.25 20H6.75A2.75 2.75 0 014 17.25V6.75z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7l7 5 7-5" /></svg>
+        </div>
+        <h2>Get in Touch</h2>
+        <p class="dashboard-contact-copy">If you have any questions, feedback, or would like to report an issue, please reach out to us at <a href="mailto:info@foodpal.com">info@foodpal.com</a> and we will get back to you as soon as we can.</p>
+        <a href="mailto:info@foodpal.com" class="dashboard-support-email">info@foodpal.com</a>
+
+      </div>
+    </section>
+  </main>
+
+  <style> @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } </style>
+  <script type="module">import { initContact } from "./js/profile.js"; initContact();</script>
+</body>
+</html>

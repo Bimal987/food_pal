@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Food Pal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+             sans: ['Inter', 'sans-serif'],
+             display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+             brand: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 900: '#14532d' }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/tailwind.css">
+  <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-[#F5F1E8] text-slate-900 min-h-screen flex flex-col">
+  <header id="navbar" class="bg-white/80 backdrop-blur border-b border-white/60 sticky top-0 z-10"></header>
+
+  <main class="dashboard-shell flex-1 animate-fade-in" style="animation: fadeIn 0.5s ease-out">
+    <aside class="dashboard-sidebar" aria-label="Dashboard navigation">
+      <div class="dashboard-brand" aria-label="Dashboard">
+        <span class="dashboard-brand-name">My Dashboard</span>
+      </div>
+
+      <nav class="dashboard-nav">
+        <a href="dashboard.html?section=profile" class="dashboard-nav-link" data-dashboard-nav="profile" data-title="Profile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 21a8 8 0 10-16 0M12 13a5 5 0 100-10 5 5 0 000 10z" /></svg>
+          <span>Profile</span>
+        </a>
+        <a href="dashboard.html?section=favorites" class="dashboard-nav-link" data-dashboard-nav="favorites" data-title="Favorites">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.84 5.61a5.5 5.5 0 00-7.78 0L12 6.67l-1.06-1.06a5.5 5.5 0 10-7.78 7.78L12 22.23l8.84-8.84a5.5 5.5 0 000-7.78z" /></svg>
+          <span>Favorites</span>
+        </a>
+        <a href="dashboard.html?section=reviews" class="dashboard-nav-link" data-dashboard-nav="reviews" data-title="My Reviews">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.48 3.5l2.1 4.25 4.69.68-3.39 3.31.8 4.67-4.2-2.21-4.2 2.21.8-4.67-3.39-3.31 4.69-.68 2.1-4.25zM4.75 20.5h13.5" /></svg>
+          <span>My Reviews</span>
+        </a>
+        <a href="dashboard.html?section=contact" class="dashboard-nav-link" data-dashboard-nav="contact" data-title="Contact">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6.75A2.75 2.75 0 016.75 4h10.5A2.75 2.75 0 0120 6.75v10.5A2.75 2.75 0 0117.25 20H6.75A2.75 2.75 0 014 17.25V6.75z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7l7 5 7-5" /></svg>
+          <span>Contact</span>
+        </a>
+      </nav>
+
+    </aside>
+
+    <div class="dashboard-main">
+      <section class="dashboard-content-panel panel-card" data-dashboard-section="profile">
+        <div class="dashboard-section-header">
+          <div>
+            <h2 class="dashboard-section-title">Profile</h2>
+          </div>
+        </div>
+        <div class="dashboard-profile-card">
+          <div class="dashboard-profile-main">
+            <div class="profile-avatar dashboard-avatar rounded-full bg-brand-100 flex items-center justify-center text-brand-600 text-3xl font-display font-bold border-4 border-white shadow-lg">
+              <span id="initials" data-profile-initials>U</span>
+            </div>
+            <div>
+              <h3 id="userName" class="dashboard-profile-name" data-profile-name>Loading...</h3>
+              <p id="userEmail" class="dashboard-profile-email" data-profile-email></p>
+            </div>
+          </div>
+          <div class="dashboard-profile-actions">
+            <div class="profile-stat compact-stat">
+              <span class="profile-stat-number" id="ratingsCount" data-ratings-count>0</span>
+              <span class="profile-stat-label">Reviews</span>
+            </div>
+            <div class="profile-stat compact-stat">
+              <span class="profile-stat-number" id="favCount" data-favorites-count>0</span>
+              <span class="profile-stat-label">Favorites</span>
+            </div>
+          </div>
+        </div>
+        <div class="profile-settings-grid">
+          <section class="profile-settings-card">
+            <h3>Profile</h3>
+            <form id="profileDetailsForm" class="profile-settings-form">
+              <label>
+                <span>Full Name*</span>
+                <input id="profileNameInput" name="name" type="text" autocomplete="name" required>
+              </label>
+              <input id="profileEmailInput" name="email" type="hidden">
+              <button type="submit" class="profile-primary-btn">Update Profile</button>
+              <p id="profileDetailsMessage" class="profile-form-message" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <section class="profile-settings-card">
+            <h3>Change Password</h3>
+            <form id="changePasswordForm" class="profile-settings-form">
+              <label>
+                <span>Old Password*</span>
+                <span class="profile-password-field">
+                  <input id="oldPasswordInput" name="oldPassword" type="password" placeholder="Old Password" autocomplete="current-password" required>
+                  <button type="button" data-toggle-password="oldPasswordInput" aria-label="Show password"><span class="sr-only">Show password</span></button>
+                </span>
+              </label>
+              <label>
+                <span>New Password*</span>
+                <span class="profile-password-field">
+                  <input id="newPasswordInput" name="newPassword" type="password" placeholder="New Password" autocomplete="new-password" required>
+                  <button type="button" data-toggle-password="newPasswordInput" aria-label="Show password"><span class="sr-only">Show password</span></button>
+                </span>
+              </label>
+              <p class="profile-form-help">Use at least 6 characters.</p>
+              <label>
+                <span>Confirm Password*</span>
+                <span class="profile-password-field">
+                  <input id="confirmPasswordInput" name="confirmPassword" type="password" placeholder="Confirm Password" autocomplete="new-password" required>
+                  <button type="button" data-toggle-password="confirmPasswordInput" aria-label="Show password"><span class="sr-only">Show password</span></button>
+                </span>
+              </label>
+              <button type="submit" class="profile-primary-btn">Update Password</button>
+              <p id="changePasswordMessage" class="profile-form-message" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <section class="profile-settings-card profile-danger-card">
+            <h3>Delete Account</h3>
+            <form id="deleteAccountForm" class="profile-settings-form">
+              <label>
+                <span>Confirm Password*</span>
+                <span class="profile-password-field">
+                  <input id="deletePasswordInput" name="password" type="password" autocomplete="current-password" required>
+                  <button type="button" data-toggle-password="deletePasswordInput" aria-label="Show password"><span class="sr-only">Show password</span></button>
+                </span>
+              </label>
+              <button type="submit" class="profile-danger-btn">Delete Account</button>
+              <p id="deleteAccountMessage" class="profile-form-message" aria-live="polite"></p>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="dashboard-content-panel panel-card" data-dashboard-section="favorites" hidden>
+        <div class="dashboard-section-header">
+          <div>
+            <h2 class="dashboard-section-title">Favorites</h2>
+            <p id="dashboardFavoritesStatus" class="dashboard-section-copy">Loading...</p>
+          </div>
+        </div>
+        <div id="dashboardFavoritesGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+      </section>
+
+      <section class="dashboard-content-panel panel-card" data-dashboard-section="reviews" hidden>
+        <div class="dashboard-section-header">
+          <div>
+            <h2 class="dashboard-section-title">My Reviews</h2>
+            <p id="dashboardReviewsStatus" class="dashboard-section-copy">Loading your reviews...</p>
+          </div>
+        </div>
+        <div id="dashboardRatingsList" class="profile-review-list space-y-4"></div>
+      </section>
+
+      <section class="dashboard-content-panel panel-card" data-dashboard-section="contact" hidden>
+        <div class="dashboard-contact-section">
+          <div class="dashboard-contact-heading">
+            <h2 class="dashboard-section-title">Contact Us</h2>
+            <p>We'd love to hear from you!</p>
+          </div>
+          <div class="dashboard-contact-card">
+            <div class="dashboard-contact-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6.75A2.75 2.75 0 016.75 4h10.5A2.75 2.75 0 0120 6.75v10.5A2.75 2.75 0 0117.25 20H6.75A2.75 2.75 0 014 17.25V6.75z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7l7 5 7-5" /></svg>
+            </div>
+            <h3>Get in Touch</h3>
+            <p class="dashboard-contact-copy">If you have any questions, feedback, or would like to report an issue, please reach out to us at <a href="mailto:info@foodpal.com">info@foodpal.com</a> and we will get back to you as soon as we can.</p>
+            <a href="mailto:info@foodpal.com" class="dashboard-support-email">info@foodpal.com</a>
+
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <style> @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } </style>
+  <script type="module">import { initDashboard } from "./js/profile.js"; initDashboard();</script>
+</body>
+</html>
