@@ -106,7 +106,7 @@ async function run() {
       cook_time: '',
       difficulty: '',
       cuisine: '',
-      veg_type: '',
+      type: '',
       image_url: `/images/${imageFile}`,
       category: 'General',
       ingredients
@@ -120,7 +120,7 @@ async function run() {
     'cook_time',
     'difficulty',
     'cuisine',
-    'veg_type',
+    'type',
     'image_url',
     'category',
     'ingredients'

@@ -85,4 +85,70 @@ async function getProfile(req, res) {
   return res.json(rows[0]);
 }
 
-module.exports = { register, login, getProfile };
+async function updateProfile(req, res) {
+  const userId = req.user.id;
+  const name = sanitizeText(req.body?.name);
+  const email = normalizeEmail(req.body?.email);
+  const errors = [];
+
+  if (!name) errors.push('Full name is required.');
+  if (!email) errors.push('Email is required.');
+  if (email && !validateEmail(email)) errors.push('Email format is invalid.');
+  if (name && hasSuspiciousInput(name)) errors.push('Name contains unsafe input.');
+  if (errors.length) return sendValidationError(res, errors);
+
+  const [existing] = await pool.query(
+    'SELECT id FROM users WHERE email = :email AND id <> :id',
+    { email, id: userId }
+  );
+  if (existing.length) return res.status(409).json({ message: 'Email already registered' });
+
+  await pool.query(
+    'UPDATE users SET name = :name, email = :email WHERE id = :id',
+    { name, email, id: userId }
+  );
+
+  return res.json({ message: 'Profile updated', user: { id: userId, name, email, role: req.user.role || 'user' } });
+}
+
+async function updatePassword(req, res) {
+  const userId = req.user.id;
+  const oldPassword = String(req.body?.oldPassword || '');
+  const newPassword = String(req.body?.newPassword || '');
+  const confirmPassword = String(req.body?.confirmPassword || '');
+  const errors = [];
+
+  if (!oldPassword) errors.push('Old password is required.');
+  if (!newPassword) errors.push('New password is required.');
+  if (newPassword && !validatePassword(newPassword)) errors.push('New password must be at least 6 characters long.');
+  if (newPassword !== confirmPassword) errors.push('New password and confirmation do not match.');
+  if (errors.length) return sendValidationError(res, errors);
+
+  const [rows] = await pool.query('SELECT password_hash FROM users WHERE id = :id', { id: userId });
+  if (!rows.length) return res.status(404).json({ message: 'User not found' });
+
+  const ok = await bcrypt.compare(oldPassword, rows[0].password_hash);
+  if (!ok) return res.status(401).json({ message: 'Old password is incorrect' });
+
+  const password_hash = await bcrypt.hash(newPassword, 10);
+  await pool.query('UPDATE users SET password_hash = :password_hash WHERE id = :id', { password_hash, id: userId });
+
+  return res.json({ message: 'Password updated' });
+}
+
+async function deleteAccount(req, res) {
+  const userId = req.user.id;
+  const password = String(req.body?.password || '');
+  if (!password) return sendValidationError(res, ['Password is required.']);
+
+  const [rows] = await pool.query('SELECT password_hash FROM users WHERE id = :id', { id: userId });
+  if (!rows.length) return res.status(404).json({ message: 'User not found' });
+
+  const ok = await bcrypt.compare(password, rows[0].password_hash);
+  if (!ok) return res.status(401).json({ message: 'Password is incorrect' });
+
+  await pool.query('DELETE FROM users WHERE id = :id', { id: userId });
+  return res.json({ message: 'Account deleted' });
+}
+
+module.exports = { register, login, getProfile, updateProfile, updatePassword, deleteAccount };

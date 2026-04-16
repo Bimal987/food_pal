@@ -81,6 +81,23 @@ async function updateRating(req, res) {
   return res.json({ message: 'Rating updated' });
 }
 
+async function deleteRating(req, res) {
+  const userId = req.user.id;
+  const recipeId = parseInt(req.params.recipeId, 10);
+  if (!recipeId) return res.status(400).json({ message: 'Invalid recipeId' });
+
+  const [result] = await pool.query(
+    'DELETE FROM ratings WHERE user_id = :userId AND recipe_id = :recipeId',
+    { userId, recipeId }
+  );
+
+  if (result.affectedRows === 0) {
+    return res.status(404).json({ message: 'No existing rating found to delete' });
+  }
+
+  return res.json({ message: 'Rating deleted' });
+}
+
 async function getMyRatings(req, res) {
   const userId = req.user.id;
   const [rows] = await pool.query(`
@@ -109,4 +126,4 @@ async function getRecipeRatings(req, res) {
   return res.json(rows);
 }
 
-module.exports = { addRating, updateRating, getUserRating, getMyRatings, getRecipeRatings };
+module.exports = { addRating, updateRating, deleteRating, getUserRating, getMyRatings, getRecipeRatings };

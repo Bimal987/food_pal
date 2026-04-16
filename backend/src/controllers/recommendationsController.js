@@ -2,7 +2,18 @@ const pool = require('../config/db');
 
 // Keep ML influence bounded so heuristic/personal signals still steer ranking.
 const ML_WEIGHT = 6;
+
+// Jaccard normalizes ingredient overlap by recipe size, so long recipes do not win just
+// because they contain more ingredients.
+const INGREDIENT_JACCARD_WEIGHT = 5;
+
+// Co-rating overlap is useful, but raw counts can grow quickly as the app gets more users.
+// A log curve rewards overlap while reducing the popularity bias from very common recipes.
+const COLLABORATIVE_LOG_WEIGHT = 4;
 const DEFAULT_LIMIT = 5;
+const TOP_PICK_LIMIT = 3;
+const LOW_GLOBAL_RATING_THRESHOLD = 3;
+const LOW_GLOBAL_RATING_MIN_COUNT = 2;
 
 function isMissingTableError(err) {
   return err && err.code === 'ER_NO_SUCH_TABLE';
@@ -48,16 +59,36 @@ function mapRecommendation(rec) {
     difficulty: rec.difficulty,
     cuisine: rec.cuisine,
     image_url: rec.image_url,
+    avg_rating: rec.avg_rating,
+    ratings_count: rec.ratings_count,
     score: rec.score
   };
+}
+
+function calculateJaccardSimilarity(a, b) {
+  if (!a.size || !b.size) return 0;
+
+  // Jaccard = shared items / all unique items across both sets.
+  // Example: 4 shared ingredients out of 20 unique total ingredients = 0.2.
+  let intersection = 0;
+  for (const value of a) {
+    if (b.has(value)) intersection += 1;
+  }
+
+  const union = a.size + b.size - intersection;
+  return union > 0 ? intersection / union : 0;
 }
 
 async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
   const useMlReco = String(process.env.USE_ML_RECO || 'true').toLowerCase() !== 'false';
 
-  // target recipe
+  // The recipe currently being viewed is the seed item. Every candidate is scored
+  // by how similar it is to this target recipe, with optional user-specific boosts.
   const [targetRows] = await pool.query(
-    'SELECT id, cuisine, difficulty, cook_time FROM recipes WHERE id = :id',
+    `SELECT r.id, cu.name AS cuisine, r.difficulty, r.cook_time
+     FROM recipes r
+     LEFT JOIN cuisines cu ON cu.id = r.cuisine_id
+     WHERE r.id = :id`,
     { id: recipeId }
   );
   if (!targetRows.length) return null;
@@ -71,6 +102,8 @@ async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
   `, { id: recipeId });
   const targetIngs = new Set(targetIngRows.map(r => r.name));
 
+  // Logged-in users can personalize the list. Their low ratings remove bad matches,
+  // while high ratings give a small boost to recipes they already seem to like.
   let userRatingsMap = new Map();
   let targetUserRating = null;
   if (userId) {
@@ -82,11 +115,19 @@ async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
     if (userRatingsMap.has(recipeId)) targetUserRating = userRatingsMap.get(recipeId);
   }
 
-  // fetch candidates with ingredients
+  // Fetch every other recipe with its ingredients. The repeated SQL rows are folded
+  // into one candidate object per recipe below.
   const [rows] = await pool.query(`
-    SELECT r.id, r.title, r.cook_time, r.difficulty, r.cuisine, r.image_url,
+    SELECT r.id, r.title, r.cook_time, r.difficulty, cu.name AS cuisine, r.image_url,
+           rating_stats.avg_rating, COALESCE(rating_stats.ratings_count, 0) AS ratings_count,
            i.name AS ingredient_name
     FROM recipes r
+    LEFT JOIN cuisines cu ON cu.id = r.cuisine_id
+    LEFT JOIN (
+      SELECT recipe_id, ROUND(AVG(rating), 1) AS avg_rating, COUNT(*) AS ratings_count
+      FROM ratings
+      GROUP BY recipe_id
+    ) rating_stats ON rating_stats.recipe_id = r.id
     LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
     LEFT JOIN ingredients i ON i.id = ri.ingredient_id
     WHERE r.id <> :id
@@ -104,6 +145,8 @@ async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
         difficulty: row.difficulty,
         cuisine: row.cuisine,
         image_url: row.image_url,
+        avg_rating: row.avg_rating,
+        ratings_count: row.ratings_count,
         ingredients: new Set(),
         cf_score: 0,
         ml_score: 0
@@ -118,6 +161,8 @@ async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
     const mlRows = await fetchMlSimilarities(recipeId, modelVersion);
     for (const row of mlRows) {
       if (map.has(row.recipe_id)) {
+        // Offline cosine similarity is in the 0..1 range, so we multiply it into
+        // the same rough range as the content and collaborative scores.
         map.get(row.recipe_id).ml_score = Number(row.score) * ML_WEIGHT;
       }
     }
@@ -136,22 +181,36 @@ async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
 
   for (const row of cfRows) {
     if (map.has(row.recipe_id)) {
-      // Co-ratings are sparse but high-signal, so they get a stronger multiplier.
-      map.get(row.recipe_id).cf_score = row.overlap * 3;
+      // Co-ratings are sparse but high-signal; log scaling keeps popular recipes from dominating.
+      map.get(row.recipe_id).cf_score = Math.log1p(Number(row.overlap) || 0) * COLLABORATIVE_LOG_WEIGHT;
     }
   }
 
   const scored = [];
   for (const rec of map.values()) {
     let score = 0;
+    const avgRating = Number(rec.avg_rating);
+    const ratingsCount = Number(rec.ratings_count) || 0;
+
+    // Avoid presenting recipes with enough evidence of poor public reception as top picks.
+    if (
+      ratingsCount >= LOW_GLOBAL_RATING_MIN_COUNT
+      && Number.isFinite(avgRating)
+      && avgRating < LOW_GLOBAL_RATING_THRESHOLD
+    ) {
+      continue;
+    }
+
+    // Content priors keep recommendations useful even before there is much user data.
     if (rec.cuisine && target.cuisine && rec.cuisine === target.cuisine) score += 2;
     if (rec.difficulty && target.difficulty && rec.difficulty === target.difficulty) score += 1;
     if (typeof rec.cook_time === 'number' && typeof target.cook_time === 'number') {
       if (Math.abs(rec.cook_time - target.cook_time) <= 10) score += 1;
     }
-    for (const ing of rec.ingredients) {
-      if (targetIngs.has(ing)) score += 1; // Content overlap
-    }
+
+    // Ingredient similarity is normalized instead of raw-counted, so generic shared
+    // ingredients such as salt or oil have less chance to overwhelm the ranking.
+    score += calculateJaccardSimilarity(targetIngs, rec.ingredients) * INGREDIENT_JACCARD_WEIGHT;
     
     // Add learned + collaborative evidence after content priors.
     if (rec.cf_score) score += rec.cf_score;
@@ -174,6 +233,8 @@ async function buildRecommendations(recipeId, userId, limit = DEFAULT_LIMIT) {
     if (score > 0) scored.push({ ...rec, score });
   }
 
+  // Higher final score means the candidate is more relevant to the current recipe
+  // after combining content, collaborative, ML, and user feedback signals.
   scored.sort((a, b) => b.score - a.score);
   const top = scored.slice(0, limit).map(mapRecommendation);
 
@@ -235,13 +296,13 @@ async function getTopPick(req, res) {
     return res.status(404).json({ message: 'Not enough history for personalized top pick' });
   }
 
-  const picks = await buildRecommendations(seedRecipeId, userId, 1);
+  const picks = await buildRecommendations(seedRecipeId, userId, TOP_PICK_LIMIT);
   if (!picks || !picks.length) {
     return res.status(404).json({ message: 'No top pick found yet' });
   }
 
   return res.json({
-    ...picks[0],
+    data: picks,
     seed_recipe_id: seedRecipeId,
     personalized: true
   });

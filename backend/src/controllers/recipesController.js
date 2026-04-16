@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { getPagination } = require('../utils/pagination');
+const { ensureRecipeViewColumn } = require('../utils/recipeViews');
 const {
   sanitizeText,
   validateLength,
@@ -13,6 +14,13 @@ const DIFFICULTY_MAP = {
   medium: 'Medium',
   hard: 'Hard'
 };
+const POPULAR_RATING_CONFIDENCE = 5;
+
+function normalizeRecipeType(value) {
+  const key = sanitizeText(value || '').toLowerCase();
+  if (key === 'non-veg') return 'nonveg';
+  return key;
+}
 
 function buildInClause(name, values) {
   const ids = Array.from(new Set(values.map(v => parseInt(v, 10)).filter(n => Number.isInteger(n) && n > 0)));
@@ -27,7 +35,7 @@ async function listRecipes(req, res) {
   const q = sanitizeText(req.query.q || '');
   const cuisine = sanitizeText(req.query.cuisine || '');
   const difficultyRaw = sanitizeText(req.query.difficulty || '').toLowerCase();
-  const veg_type = sanitizeText(req.query.veg_type || '').toLowerCase();
+  const type = normalizeRecipeType(req.query.type || req.query.veg_type || '');
   const category = sanitizeText(req.query.category || '');
   const sort = sanitizeText(req.query.sort || '');
   const maxTime = req.query.maxTime;
@@ -51,12 +59,20 @@ async function listRecipes(req, res) {
   if (errors.length) return sendValidationError(res, errors);
 
   const where = [];
-  const params = { limit, offset };
+  const params = { limit, offset, popularRatingConfidence: POPULAR_RATING_CONFIDENCE };
 
   if (q) { where.push('r.title LIKE :q'); params.q = `%${q}%`; }
-  if (cuisine) { where.push('r.cuisine = :cuisine'); params.cuisine = cuisine; }
+  if (cuisine) {
+    if (/^\d+$/.test(String(cuisine))) {
+      where.push('r.cuisine_id = :cuisineId');
+      params.cuisineId = parseInt(cuisine, 10);
+    } else {
+      where.push('cu.name = :cuisine');
+      params.cuisine = cuisine;
+    }
+  }
   if (difficultyRaw) { where.push('r.difficulty = :difficulty'); params.difficulty = DIFFICULTY_MAP[difficultyRaw]; }
-  if (veg_type) { where.push('r.veg_type = :veg_type'); params.veg_type = veg_type; }
+  if (type) { where.push('r.veg_type = :type'); params.type = type; }
   if (maxTime !== undefined) { where.push('r.cook_time <= :maxTime'); params.maxTime = parseInt(parsedMaxTime, 10); }
   if (category) {
     if (/^\d+$/.test(String(category))) {
@@ -74,6 +90,7 @@ async function listRecipes(req, res) {
     SELECT COUNT(*) as total
     FROM recipes r
     LEFT JOIN categories c ON c.id = r.category_id
+    LEFT JOIN cuisines cu ON cu.id = r.cuisine_id
     ${whereSql}
   `;
 
@@ -82,21 +99,35 @@ async function listRecipes(req, res) {
 
   // Ordering Logic
   let orderBy = 'r.created_at DESC';
-  if (sort === 'popular') orderBy = 'avg_rating DESC, ratings_count DESC';
-  else if (sort === 'oldest') orderBy = 'r.created_at ASC';
-  else if (sort === 'time_asc') orderBy = 'r.cook_time ASC';
-  else if (sort === 'time_desc') orderBy = 'r.cook_time DESC';
+  if (sort === 'popular') orderBy = 'popular_score DESC, ratings_count DESC, avg_rating DESC, r.id DESC';
+  else if (sort === 'oldest') orderBy = 'r.created_at ASC, r.id ASC';
+  else if (sort === 'time_asc') orderBy = 'r.cook_time ASC, r.id DESC';
+  else if (sort === 'time_desc') orderBy = 'r.cook_time DESC, r.id DESC';
   else if (sort === 'random') orderBy = 'RAND()';
+  else orderBy = 'r.created_at DESC, r.id DESC';
 
   const sql = `
     SELECT 
-      r.id, r.title, r.cook_time, r.difficulty, r.cuisine, r.veg_type, r.image_url,
-      c.name AS category_name,
+      r.id, r.title, r.cook_time, r.difficulty, cu.name AS cuisine, r.cuisine_id,
+      r.veg_type AS type, r.veg_type, r.image_url,
+      r.category_id, c.name AS category_name,
       ROUND(AVG(rt.rating), 1) AS avg_rating,
-      COUNT(rt.id) AS ratings_count
+      COUNT(rt.id) AS ratings_count,
+      CASE
+        WHEN COUNT(rt.id) = 0 THEN 0
+        ELSE (
+          (COUNT(rt.id) / (COUNT(rt.id) + :popularRatingConfidence)) * COALESCE(AVG(rt.rating), 0)
+          + (:popularRatingConfidence / (COUNT(rt.id) + :popularRatingConfidence)) * COALESCE(MAX(global_rating.avg_rating), 0)
+        )
+      END AS popular_score
     FROM recipes r
     LEFT JOIN categories c ON c.id = r.category_id
+    LEFT JOIN cuisines cu ON cu.id = r.cuisine_id
     LEFT JOIN ratings rt ON rt.recipe_id = r.id
+    CROSS JOIN (
+      SELECT COALESCE(AVG(rating), 0) AS avg_rating
+      FROM ratings
+    ) global_rating
     ${whereSql}
     GROUP BY r.id
     ORDER BY ${orderBy}
@@ -120,12 +151,18 @@ async function getRecipeById(req, res) {
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ message: 'Invalid recipe id' });
 
+  const viewColumn = await ensureRecipeViewColumn();
+  if (req.query.trackView !== 'false') {
+    await pool.query(`UPDATE recipes SET ${viewColumn} = ${viewColumn} + 1 WHERE id = :id`, { id });
+  }
+
   const [recipeRows] = await pool.query(`
-    SELECT r.*, c.name AS category_name,
+    SELECT r.*, cu.name AS cuisine, r.veg_type AS type, c.name AS category_name,
            ROUND(AVG(rt.rating), 1) AS avg_rating,
            COUNT(rt.id) AS ratings_count
     FROM recipes r
     LEFT JOIN categories c ON c.id = r.category_id
+    LEFT JOIN cuisines cu ON cu.id = r.cuisine_id
     LEFT JOIN ratings rt ON rt.recipe_id = r.id
     WHERE r.id = :id
     GROUP BY r.id
@@ -136,11 +173,11 @@ async function getRecipeById(req, res) {
   const recipe = recipeRows[0];
 
   const [ingRows] = await pool.query(`
-    SELECT i.id, i.name
+    SELECT i.id, i.name, ri.display_text, ri.sort_order
     FROM recipe_ingredients ri
     JOIN ingredients i ON i.id = ri.ingredient_id
     WHERE ri.recipe_id = :id
-    ORDER BY i.name ASC
+    ORDER BY ri.sort_order ASC, i.name ASC
   `, { id });
 
   return res.json({ ...recipe, ingredients: ingRows });
@@ -175,7 +212,8 @@ async function listRecipesByIngredients(req, res) {
 
   const sql = `
     SELECT 
-      r.id, r.title, r.cook_time, r.difficulty, r.cuisine, r.veg_type, r.image_url,
+      r.id, r.title, r.cook_time, r.difficulty, cu.name AS cuisine, r.cuisine_id,
+      r.veg_type AS type, r.veg_type, r.image_url,
       c.name AS category_name,
       ROUND(AVG(rt.rating), 1) AS avg_rating,
       COUNT(rt.id) AS ratings_count,
@@ -183,6 +221,7 @@ async function listRecipesByIngredients(req, res) {
     FROM recipes r
     JOIN recipe_ingredients ri ON ri.recipe_id = r.id
     LEFT JOIN categories c ON c.id = r.category_id
+    LEFT JOIN cuisines cu ON cu.id = r.cuisine_id
     LEFT JOIN ratings rt ON rt.recipe_id = r.id
     WHERE ri.ingredient_id IN (${placeholders})
     GROUP BY r.id
@@ -225,7 +264,8 @@ async function getIngredientRecommendations(req, res) {
 
   const sql = `
     SELECT 
-      r.id, r.title, r.cook_time, r.difficulty, r.cuisine, r.veg_type, r.image_url,
+      r.id, r.title, r.cook_time, r.difficulty, cu.name AS cuisine, r.cuisine_id,
+      r.veg_type AS type, r.veg_type, r.image_url,
       c.name AS category_name,
       GROUP_CONCAT(DISTINCT i.name ORDER BY i.name SEPARATOR '||') AS matched_ingredients,
       COUNT(DISTINCT ri.ingredient_id) AS matched_count
@@ -233,6 +273,7 @@ async function getIngredientRecommendations(req, res) {
     JOIN recipe_ingredients ri ON ri.recipe_id = r.id
     JOIN ingredients i ON i.id = ri.ingredient_id
     LEFT JOIN categories c ON c.id = r.category_id
+    LEFT JOIN cuisines cu ON cu.id = r.cuisine_id
     WHERE ri.ingredient_id IN (${placeholders})
     GROUP BY r.id
     HAVING matched_count >= :minMatched AND matched_count < :allMatched
@@ -274,6 +315,8 @@ async function getIngredientRecommendations(req, res) {
       cook_time: r.cook_time,
       difficulty: r.difficulty,
       cuisine: r.cuisine,
+      cuisine_id: r.cuisine_id,
+      type: r.type,
       veg_type: r.veg_type,
       image_url: r.image_url,
       category_name: r.category_name,

@@ -196,9 +196,6 @@ async function main() {
     }
 
     const result = await writeModel(similarities, trainRows);
-    console.log(`Model trained: ${result.modelVersion}`);
-    console.log(`Train rows: ${trainRows}`);
-    console.log(`Similarities stored: ${result.metrics.similarities_count}`);
   } catch (err) {
     console.error('Training failed:', err.message);
     process.exitCode = 1;

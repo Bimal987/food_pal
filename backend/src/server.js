@@ -6,6 +6,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const authRoutes = require('./routes/authRoutes');
 const recipesRoutes = require('./routes/recipesRoutes');
 const categoriesRoutes = require('./routes/categoriesRoutes');
+const cuisinesRoutes = require('./routes/cuisinesRoutes');
 const favoritesRoutes = require('./routes/favoritesRoutes');
 const ratingsRoutes = require('./routes/ratingsRoutes');
 const recoRoutes = require('./routes/recommendationsRoutes');
@@ -27,6 +28,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/categories', categoriesRoutes);
+app.use('/api/cuisines', cuisinesRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/ratings', ratingsRoutes);
 app.use('/api/recommendations', recoRoutes);
@@ -43,6 +45,11 @@ async function startServer() {
     const result = await ensureSeededIfEmpty();
     if (result?.seeded) {
       console.log(`Auto-seeded recipes. Total recipes: ${result.total}`);
+    }
+    const cleanup = result?.ingredientCleanup;
+    const cleanupCount = (cleanup?.updated || 0) + (cleanup?.merged || 0) + (cleanup?.removed || 0);
+    if (cleanupCount > 0) {
+      console.log(`Cleaned ingredients: ${cleanup.updated} updated, ${cleanup.merged} merged, ${cleanup.removed} removed`);
     }
   } catch (err) {
     console.log('Auto-seed skipped:', err.message);
