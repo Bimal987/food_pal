@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -44,6 +44,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/tailwind.css">
   <style>
     body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
     h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Outfit', sans-serif; }
@@ -61,27 +62,27 @@
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 selection:bg-brand-500 selection:text-white antialiased">
+<body class="bg-[#F5F1E8] text-slate-800 selection:bg-brand-500 selection:text-white antialiased">
   <div class="page-container">
-    <header id="navbar" class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50 transition-all duration-300"></header>
+    <header id="navbar" class="bg-white/80 backdrop-blur-md border-b border-white/60 sticky top-0 z-50 transition-all duration-300"></header>
 
     <!-- Hero Section -->
     <section id="heroSection" class="hero-pattern hero-section w-full border-b border-brand-100/50 relative overflow-hidden flex items-center">
       <div class="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-brand-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
       <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
 
-      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 text-center relative z-10 animate-fade-in flex flex-col items-center justify-center">
-        <div class="inline-block mb-2 px-3 py-1 rounded-full bg-brand-100 text-brand-700 text-xs md:text-sm font-semibold tracking-wide uppercase border border-brand-200 shadow-sm">
-          &#10024; The new way to cook
+      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14 text-center relative z-10 animate-fade-in flex flex-col items-center justify-center">
+        <div class="inline-block mb-3 px-3.5 py-1.5 rounded-full bg-brand-100 text-brand-700 text-xs md:text-sm font-semibold tracking-wide uppercase border border-brand-200 shadow-sm">
+          The new way to cook
         </div>
-        <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 font-display tracking-tight mb-5 leading-tight">
+        <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 font-display tracking-tight mb-6 leading-tight section-title">
           Cook What You <br/><span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-emerald-500">Truly Crave</span>
         </h1>
         
         
         <div class="w-full max-w-2xl mx-auto relative group mb-6">
           <div class="absolute -inset-1 bg-gradient-to-r from-brand-500 to-emerald-400 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
-          <form id="searchForm" class="relative bg-white px-2.5 py-1.5 rounded-full shadow-xl border border-slate-200 flex items-center gap-2">
+          <form id="searchForm" class="relative bg-white px-2.5 py-1.5 rounded-full shadow-xl border border-slate-200 flex items-center gap-2 focus-within:ring-4 focus-within:ring-brand-500/15 transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-400 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -94,7 +95,7 @@
           </form>
         </div>
 
-        <div class="inline-flex flex-wrap items-center justify-center gap-4 text-slate-700 font-semibold text-xs md:text-sm bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm">
+        <div class="inline-flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-slate-700 font-semibold text-xs md:text-sm bg-white/85 backdrop-blur-sm px-4 py-2.5 rounded-full shadow-sm border border-white/70">
            <span>Top rated recipes</span>
            <span class="w-1 h-1 bg-slate-400 rounded-full"></span>
            <span>Personalized for you</span>
@@ -104,13 +105,13 @@
       </div>
     </section>
 
-    <main id="homeSections" class="content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-14">
+    <main id="homeSections" class="content user-shell mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
     
     <!-- Today's Featured (Random/Latest) -->
     <section id="featuredSection">
-       <div class="flex items-end justify-between mb-8">
+       <div class="flex items-end justify-between gap-4 mb-8">
           <div>
-            <h2 id="featuredTitle" class="text-3xl font-bold font-display text-slate-900">Featured Today</h2>
+            <h2 id="featuredTitle" class="text-3xl font-bold font-display text-slate-900 section-title">Featured Today</h2>
             <p id="featuredSubtitle" class="text-slate-500 mt-2">Our editors' top pick for you.</p>
           </div>
           <a href="explore.html" class="hidden sm:flex text-brand-600 font-semibold items-center gap-1 hover:gap-2 transition-all">
@@ -124,9 +125,9 @@
        </div>
     </section>
 
-    <!-- Popular/Trending -->
+    <!-- Popular Recipes -->
     <section id="trendingSection">
-       <h2 class="text-3xl font-bold font-display text-slate-900 mb-8">Trending Now</h2>
+       <h2 class="text-3xl font-bold font-display text-slate-900 mb-8 section-title">Popular Recipes</h2>
        <div id="popularGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <!-- Popular Cards Injected Here -->
        </div>
@@ -136,13 +137,13 @@
     </section>
 
     <!-- Fresh Recipes -->
-    <section id="latestSection" class="bg-slate-50 rounded-3xl p-8 lg:p-12 border border-slate-100">
+    <section id="latestSection" class="soft-panel rounded-3xl p-6 sm:p-8 lg:p-12">
        <div class="flex flex-col md:flex-row items-center justify-between gap-8 mb-8">
           <div class="text-center md:text-left">
-            <h2 class="text-3xl font-bold font-display text-slate-900">Latest Recipes</h2>
+            <h2 class="text-3xl font-bold font-display text-slate-900 section-title">Latest Recipes</h2>
              <p class="text-slate-500 mt-2 max-w-md">Discover the latest additions to our collection. Perfectly curated for your next meal.</p>
           </div>
-          <a href="explore.html?sort=newest" class="bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold hover:shadow-md transition-all">
+          <a href="explore.html?sort=newest" class="bg-[#FFFDF8] border border-[#D8CFC0] text-slate-700 px-6 py-3 rounded-xl font-bold hover:shadow-md transition-all">
              Browse Latest
           </a>
        </div>
@@ -151,12 +152,12 @@
 
     </main>
   
-    <footer id="siteFooter" class="bg-white border-t border-slate-100 py-2 mt-auto">
+    <footer id="siteFooter" class="bg-[#10151A] border-t border-[#1f2a35] py-2 mt-auto">
       <div class="max-w-7xl mx-auto px-4 text-center">
-        <div class="font-display font-bold text-lg text-slate-900 mb-1 flex items-center justify-center gap-2">
+        <div class="font-display font-bold text-lg text-white mb-1 flex items-center justify-center gap-2">
           Food Pal.
         </div>
-        <p class="text-slate-500 mb-1 text-xs">Cook something different today.</p>
+        <p class="text-slate-300 mb-1 text-xs">Cook something different today.</p>
         <div class="text-slate-400 text-xs">
           &copy; 2026 Food Pal. All rights reserved.
         </div>
@@ -167,6 +168,3 @@
   <script type="module">import { initHome } from "./js/home.js"; initHome();</script>
 </body>
 </html>
-
-
-

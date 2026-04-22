@@ -9,6 +9,22 @@ function getId() {
 
 function el(id) { return document.getElementById(id); }
 
+function normalizeRecipeType(value) {
+  const v = String(value || '').toLowerCase().trim();
+  if (v === 'non-veg') return 'nonveg';
+  return v;
+}
+
+function formatRecipeType(value) {
+  const type = normalizeRecipeType(value);
+  const map = {
+    veg: { label: 'Vegetarian', className: 'px-3 py-1 rounded-full bg-green-50 text-green-600 border border-green-100' },
+    nonveg: { label: 'Non-Veg', className: 'px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100' },
+    vegan: { label: 'Vegan', className: 'px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100' }
+  };
+  return map[type] || { label: 'Recipe', className: 'px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200' };
+}
+
 // Accept both token keys used across environments.
 function getAuthToken() {
   return localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -33,7 +49,7 @@ function displayIngredientName(name) {
 
 function renderIngredients(list) {
   return list
-    .map(i => `<li class="py-1">&bull; ${displayIngredientName(i.name)}</li>`)
+    .map(i => `<li class="py-1">&bull; ${displayIngredientName(i.display_text || i.name)}</li>`)
     .join('');
 }
 
@@ -60,10 +76,9 @@ async function loadRecipe() {
     if(el('cuisinebadge')) el('cuisinebadge').textContent = recipe.cuisine || 'Generic';
     if(el('levelbadge')) el('levelbadge').textContent = recipe.difficulty || 'Medium';
     if(el('vegbadge')) {
-        el('vegbadge').textContent = recipe.veg_type === 'non-veg' ? 'Non-Veg' : 'Veg';
-        el('vegbadge').className = recipe.veg_type === 'non-veg' 
-            ? 'px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100' 
-            : 'px-3 py-1 rounded-full bg-green-50 text-green-600 border border-green-100';
+        const typeMeta = formatRecipeType(recipe.type || recipe.veg_type);
+        el('vegbadge').textContent = typeMeta.label;
+        el('vegbadge').className = typeMeta.className;
     }
     if(el('time')) el('time').textContent = recipe.cook_time + ' min';
 
@@ -101,6 +116,22 @@ async function loadRecipe() {
 }
 
 let currentRating = 0;
+let savedUserRating = null;
+
+function showRatingForm(show) {
+  const box = el('ratingBox');
+  const notice = el('ratedNotice');
+  if (box) box.classList.toggle('hidden', !show);
+  if (notice) notice.classList.toggle('hidden', show || !savedUserRating);
+  if (!show && savedUserRating) renderSavedRatingStars(savedUserRating.rating);
+}
+
+function setRatingActions(hasExistingRating) {
+  const addBtn = el('addRatingBtn');
+  const updateBtn = el('updateRatingBtn');
+  if (addBtn) addBtn.classList.toggle('hidden', hasExistingRating);
+  if (updateBtn) updateBtn.classList.toggle('hidden', !hasExistingRating);
+}
 
 function setRatingUI(value) {
   const safeValue = Math.max(0, Math.min(5, Number(value) || 0));
@@ -120,6 +151,22 @@ function setRatingUI(value) {
   if (label) label.textContent = `${safeValue} / 5 Stars`;
 }
 
+function renderSavedRatingStars(value) {
+  const wrap = el('savedRatingStars');
+  if (!wrap) return;
+  const rating = Math.max(0, Math.min(5, Number(value) || 0));
+  const stars = Array.from({ length: 5 }, (_, index) => {
+    const active = index < rating;
+    return `
+      <svg class="h-5 w-5 ${active ? 'text-amber-400' : 'text-slate-300'}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      </svg>
+    `;
+  }).join('');
+  wrap.innerHTML = `${stars}<span class="ml-2 text-sm font-semibold text-slate-700">${rating} / 5</span>`;
+  wrap.setAttribute('aria-label', `Your rating is ${rating} out of 5 stars`);
+}
+
 function bindStarPicker() {
   const buttons = document.querySelectorAll('#starPicker .star-btn');
   buttons.forEach(btn => {
@@ -136,19 +183,27 @@ async function loadUserRating(recipeId) {
   if (!token) {
     el('ratingBox').classList.add('hidden');
     el('loginHint').classList.remove('hidden');
+    if (el('ratedNotice')) el('ratedNotice').classList.add('hidden');
+    savedUserRating = null;
     setRatingUI(0);
     return;
   }
-  el('ratingBox').classList.remove('hidden');
   el('loginHint').classList.add('hidden');
 
   try {
     const r = await fetchWithAuth(`/api/ratings/${recipeId}`);
     if (r && r.rating) {
-      setRatingUI(r.rating);
-      el('review').value = r.review || '';
-      el('ratingStatus').textContent = 'You already rated this recipe. Use update.';
+      savedUserRating = r;
+      setRatingActions(true);
+      showRatingForm(false);
+      renderSavedRatingStars(r.rating);
+      setRatingUI(0);
+      el('review').value = '';
+      el('ratingStatus').textContent = '';
     } else {
+      savedUserRating = null;
+      setRatingActions(false);
+      showRatingForm(true);
       setRatingUI(0);
       el('ratingStatus').textContent = 'No rating yet. Add one!';
     }
@@ -156,6 +211,8 @@ async function loadUserRating(recipeId) {
     if (err?.status === 401 || err?.status === 403) {
       el('ratingBox').classList.add('hidden');
       el('loginHint').classList.remove('hidden');
+      if (el('ratedNotice')) el('ratedNotice').classList.add('hidden');
+      savedUserRating = null;
       setRatingUI(0);
     }
   }
@@ -172,13 +229,12 @@ async function submitRating(isUpdate) {
       method: isUpdate ? 'PUT' : 'POST',
       body: JSON.stringify({ rating, review })
     });
-    el('ratingStatus').textContent = isUpdate ? 'Rating updated.' : 'Rating added.';
-
-    // Keep UX explicit: after first post, clear the form so users know submit succeeded.
-    if (!isUpdate) {
-      setRatingUI(0);
-      el('review').value = '';
-    }
+    savedUserRating = { rating, review };
+    setRatingActions(true);
+    showRatingForm(false);
+    renderSavedRatingStars(rating);
+    setRatingUI(0);
+    el('review').value = '';
 
     // Refresh only the sections that actually changed without re-populating the form.
     const recipe = await fetchWithAuth(`/api/recipes/${id}`);
@@ -186,6 +242,32 @@ async function submitRating(isUpdate) {
     await loadRatingsList(id);
   } catch (err) {
     el('ratingStatus').textContent = err.message;
+  }
+}
+
+async function deleteRating() {
+  const id = getId();
+  if (!confirm('Delete your review for this recipe?')) return;
+
+  const btn = el('deleteRatingBtn');
+  if (btn) btn.disabled = true;
+
+  try {
+    await fetchWithAuth(`/api/ratings/${id}`, { method: 'DELETE' });
+    savedUserRating = null;
+    setRatingActions(false);
+    showRatingForm(true);
+    setRatingUI(0);
+    el('review').value = '';
+    el('ratingStatus').textContent = 'Review deleted. You can add a new rating anytime.';
+
+    const recipe = await fetchWithAuth(`/api/recipes/${id}`);
+    el('avg').textContent = recipe.avg_rating ? `${recipe.avg_rating} (${recipe.ratings_count})` : 'Not rated';
+    await loadRatingsList(id);
+  } catch (err) {
+    el('ratingStatus').textContent = err.message;
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -309,9 +391,31 @@ async function loadRecommendations(recipeId) {
 export async function initRecipe() {
   renderNavbar();
   bindStarPicker();
+  const backBtn = el('backBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      if (window.history.length > 1) window.history.back();
+      else window.location.href = 'index.html';
+    });
+  }
   el('favBtn').addEventListener('click', toggleFavorite);
   el('addRatingBtn').addEventListener('click', () => submitRating(false));
   el('updateRatingBtn').addEventListener('click', () => submitRating(true));
+  const editRatingBtn = el('editRatingBtn');
+  if (editRatingBtn) {
+    editRatingBtn.addEventListener('click', () => {
+      if (!savedUserRating) return;
+      el('review').value = savedUserRating.review || '';
+      setRatingUI(savedUserRating.rating || 0);
+      setRatingActions(true);
+      showRatingForm(true);
+      el('ratingStatus').textContent = 'Update your existing review.';
+    });
+  }
+  const deleteRatingBtn = el('deleteRatingBtn');
+  if (deleteRatingBtn) {
+    deleteRatingBtn.addEventListener('click', deleteRating);
+  }
   await loadRecipe();
   await checkIfFavorite();
 }

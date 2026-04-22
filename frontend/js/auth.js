@@ -21,24 +21,23 @@ export function renderNavbar() {
   const isLoggedIn = !!user;
   const isAdmin = isAdminRole(user?.role);
   const active = getActiveNavKey();
-  const activeClass = 'bg-brand-600 text-white px-3 py-1.5 rounded-full shadow-sm hover:bg-brand-700 transition-colors';
-  const baseClass = 'text-slate-600 hover:text-brand-600 transition-colors';
+  const activeClass = 'bg-brand-600 text-white px-3 py-1.5 rounded-full shadow-sm hover:bg-brand-700 transition-colors font-bold';
+  const baseClass = 'text-slate-700 hover:text-brand-600 px-1 py-1 transition-colors font-semibold';
   const navClass = (key) => (active === key ? activeClass : baseClass);
 
   nav.innerHTML = `
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div class="navbar-shell mx-auto px-4 sm:px-5 lg:px-6 min-h-16 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <a href="index.html" class="font-display font-bold text-xl md:text-2xl text-slate-800 flex items-center gap-2 hover:opacity-80 transition-opacity">
         <span class="tracking-tight">Food Pal<span class="text-brand-600">.</span></span>
       </a>
       
-      <div class="flex items-center gap-6 text-sm font-medium">
+      <div class="w-full sm:w-auto flex items-center gap-3 sm:gap-5 text-sm overflow-x-auto pb-1 sm:pb-0">
         <a href="index.html" class="${navClass('home')}">Home</a>
+        ${isLoggedIn && !isAdmin ? `<a href="dashboard.html" class="${navClass('dashboard')}">Dashboard</a>` : ``}
         <a href="explore.html" class="${navClass('explore')}">Explore</a>
         <a href="ingredients.html" class="${navClass('ingredients')}">Ingredients</a>
-        ${isLoggedIn && !isAdmin ? `<a href="favorites.html" class="${navClass('favorites')}">Favorites</a>` : ``}
         
-        <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
-          <a href="profile.html" class="text-slate-500 hover:text-brand-600 font-medium hidden sm:inline-block transition-colors" title="View Profile">${isLoggedIn ? `Hi, ${user.name.split(' ')[0]}` : ''}</a>
+        <div class="flex items-center gap-2 sm:gap-3 pl-3 sm:pl-4 border-l border-slate-200 shrink-0">
           ${isLoggedIn
             ? `<button id="logoutBtn" class="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-red-600 px-4 py-2 rounded-full transition-all shadow-sm">Logout</button>`
             : `<a class="text-slate-700 hover:text-brand-600 transition-colors px-2" href="login.html">Login</a>
@@ -60,12 +59,16 @@ export function renderNavbar() {
 
 function getActiveNavKey() {
   const path = window.location.pathname.toLowerCase();
-  if (path.includes('admin') || path.includes('profile') || path.includes('login') || path.includes('register')) {
+  if (path.includes('admin') || path.includes('login') || path.includes('register')) {
     return null;
   }
+  if (path.includes('dashboard')) return 'dashboard';
   if (path.includes('explore')) return 'explore';
   if (path.includes('ingredients')) return 'ingredients';
   if (path.includes('favorites')) return 'favorites';
+  if (path.includes('profile')) return 'profile';
+  if (path.includes('reviews')) return 'reviews';
+  if (path.includes('contact')) return 'contact';
   if (path === '/' || path.endsWith('/index.html') || path.endsWith('index.html')) return 'home';
   return null;
 }

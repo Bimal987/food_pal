@@ -46,14 +46,73 @@ function showAuthRequiredModal(message) {
 }
 
 let categories = [];
+let cuisines = [];
 let recipes = [];
+let users = [];
 let allAdminRecipes = [];
 let visibleRecipes = [];
+let visibleUsers = [];
 let editingId = null;
+let passwordUserId = null;
+const numberFormatter = new Intl.NumberFormat();
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function isValidRecipeImagePath(value) {
+  if (!value) return false;
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return /^\/?images\/[^?#]+\.(jpe?g|png|webp|gif)(\?[^#]*)?(#.*)?$/i.test(value);
+}
+
+function renderDashboardList(targetId, items, options) {
+  const target = el(targetId);
+  if (!target) return;
+
+  if (!items || !items.length) {
+    target.innerHTML = `<div class="dashboard-empty rounded-xl px-4 py-5 text-sm text-slate-500">${options.emptyText}</div>`;
+    return;
+  }
+
+  target.innerHTML = items.map((item) => {
+    const title = options.getTitle(item);
+    const meta = options.getMeta(item);
+    return `
+      <div class="dashboard-list-item rounded-xl px-4 py-3">
+        <div class="font-semibold text-slate-800 truncate" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
+        ${meta ? `<div class="mt-1 text-xs font-medium text-slate-400">${escapeHtml(meta)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
 
 // --- Navigation & View Switching ---
 function setupNavigation() {
   const navBtns = document.querySelectorAll('.nav-item');
+  const titles = {
+    dashboard: 'Admin Dashboard',
+    users: 'User Management'
+  };
   navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       // Update active state
@@ -64,11 +123,12 @@ function setupNavigation() {
       
       // Update Title
       const viewName = btn.dataset.view;
-      el('pageTitle').textContent = viewName.charAt(0).toUpperCase() + viewName.slice(1);
+      el('pageTitle').textContent = titles[viewName] || viewName.charAt(0).toUpperCase() + viewName.slice(1);
 
       // Show Section
       document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
-      el(`view-${viewName}`).classList.remove('hidden');
+      const section = el(`view-${viewName}`);
+      if (section) section.classList.remove('hidden');
     });
   });
 }
@@ -77,10 +137,51 @@ function setupNavigation() {
 async function loadStats() {
   try {
     const stats = await fetchWithAuth('/api/admin/stats');
-    el('stat-recipes').textContent = stats.recipes;
-    el('stat-users').textContent = stats.users;
-    el('stat-ratings').textContent = stats.ratings;
-    el('stat-categories').textContent = stats.categories;
+    el('stat-users').textContent = numberFormatter.format(stats.users ?? 0);
+    el('stat-recipes').textContent = numberFormatter.format(stats.recipes ?? 0);
+    el('quick-total-categories').textContent = numberFormatter.format(stats.categories ?? 0);
+    el('quick-total-cuisines').textContent = numberFormatter.format(stats.cuisines ?? 0);
+
+    const mostViewed = stats.mostViewedRecipe;
+    if (mostViewed) {
+      const title = mostViewed.title || 'Untitled recipe';
+      const views = mostViewed.view_count || 0;
+      el('stat-most-viewed-title').textContent = title;
+      el('stat-most-viewed-title').title = title;
+      el('stat-most-viewed-count').textContent = `${numberFormatter.format(views)} ${views === 1 ? 'view' : 'views'}`;
+    } else {
+      el('stat-most-viewed-title').textContent = 'No recipe views yet';
+      el('stat-most-viewed-title').title = 'No recipe views yet';
+      el('stat-most-viewed-count').textContent = '0 views';
+    }
+
+    renderDashboardList('recentRecipesList', stats.recentRecipes || [], {
+      emptyText: 'No recipes added yet.',
+      getTitle: (recipe) => recipe.title || 'Untitled recipe',
+      getMeta: (recipe) => formatDate(recipe.created_at)
+    });
+
+    renderDashboardList('recentUsersList', stats.recentUsers || [], {
+      emptyText: 'No registered users yet.',
+      getTitle: (user) => user.name || user.email || 'Unnamed user',
+      getMeta: (user) => formatDate(user.created_at)
+    });
+
+    const topCategory = stats.topCategory;
+    if (topCategory) {
+      el('topCategoryName').textContent = topCategory.name || 'Uncategorized';
+      el('topCategoryName').title = topCategory.name || 'Uncategorized';
+      const recipeCount = topCategory.recipe_count || 0;
+      el('topCategoryCount').textContent = `${numberFormatter.format(recipeCount)} ${recipeCount === 1 ? 'recipe' : 'recipes'}`;
+    } else {
+      el('topCategoryName').textContent = 'No data available';
+      el('topCategoryName').title = 'No data available';
+      el('topCategoryCount').textContent = 'Add recipes to generate category data';
+    }
+
+    const latestRecipeTitle = stats.latestRecipe?.title || 'No recipe added yet';
+    el('quick-latest-recipe').textContent = latestRecipeTitle;
+    el('quick-latest-recipe').title = latestRecipeTitle;
   } catch (err) {
     console.error('Failed to load stats', err);
   }
@@ -89,6 +190,10 @@ async function loadStats() {
 // --- Recipes Management ---
 function optionCats(selectedId) {
   return categories.map(c => `<option value="${c.id}" ${String(selectedId)===String(c.id)?'selected':''}>${c.name}</option>`).join('');
+}
+
+function optionCuisines(selectedId) {
+  return cuisines.map(c => `<option value="${c.id}" ${String(selectedId)===String(c.id)?'selected':''}>${c.name}</option>`).join('');
 }
 
 function renderRecipeRows(list) {
@@ -182,6 +287,159 @@ async function deleteRecipe(id) {
   } catch (err) { alert(err.message); }
 }
 
+// --- Users Management ---
+function renderUserRows(list) {
+  const tbody = el('usersTbody');
+  if (!tbody) return;
+
+  if (!list.length) {
+    tbody.innerHTML = `
+      <tr class="border-b">
+        <td class="p-6 text-center text-slate-400" colspan="5">No users found.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const currentUser = getUser();
+  const currentUserId = Number(currentUser?.id);
+
+  tbody.innerHTML = list.map(user => {
+    const isCurrentUser = Number(user.id) === currentUserId;
+    return `
+      <tr class="border-b transition hover:bg-slate-50" data-user-row="${user.id}">
+        <td class="p-4">${escapeHtml(user.id)}</td>
+        <td class="p-4 font-medium text-slate-900">${escapeHtml(user.name || 'Unnamed user')}</td>
+        <td class="p-4 text-slate-600">${escapeHtml(user.email || '')}</td>
+        <td class="p-4 text-slate-600">${escapeHtml(formatDate(user.created_at) || '-')}</td>
+        <td class="p-4">
+          <div class="flex flex-wrap gap-2">
+            <button class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 px-3 py-1.5 rounded-md changePasswordBtn" data-id="${user.id}">Change Password</button>
+            <button class="text-xs font-semibold ${isCurrentUser ? 'text-slate-400 bg-slate-100 cursor-not-allowed' : 'text-red-600 hover:text-red-700 bg-red-50'} px-3 py-1.5 rounded-md deleteUserBtn" data-id="${user.id}" ${isCurrentUser ? 'disabled title="You cannot delete your own account"' : ''}>Delete User</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.changePasswordBtn').forEach(btn => {
+    btn.addEventListener('click', () => openPasswordModal(parseInt(btn.dataset.id, 10)));
+  });
+  document.querySelectorAll('.deleteUserBtn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => deleteUser(parseInt(btn.dataset.id, 10)));
+  });
+}
+
+async function loadUsers() {
+  try {
+    users = await fetchWithAuth('/api/admin/users');
+    visibleUsers = Array.isArray(users) ? users.slice() : [];
+    renderUserRows(visibleUsers);
+  } catch (err) {
+    console.error('Failed to load users', err);
+  }
+}
+
+function applyUserSearch() {
+  const input = el('userSearch');
+  if (!input) return;
+  const q = (input.value || '').trim().toLowerCase();
+  if (!q) {
+    visibleUsers = users.slice();
+    renderUserRows(visibleUsers);
+    return;
+  }
+
+  visibleUsers = users.filter(user => {
+    const id = String(user.id || '');
+    const name = String(user.name || '').toLowerCase();
+    const email = String(user.email || '').toLowerCase();
+    return id.includes(q) || name.includes(q) || email.includes(q);
+  });
+  renderUserRows(visibleUsers);
+}
+
+const passwordModal = el('passwordModalOverlay');
+const passwordModalContent = el('passwordModalContent');
+
+function setPasswordModalMessage(message, type = 'error') {
+  const target = el('passwordModalMessage');
+  if (!target) return;
+  target.textContent = message || '';
+  target.classList.toggle('hidden', !message);
+  target.classList.toggle('text-red-600', type === 'error');
+  target.classList.toggle('text-brand-600', type === 'success');
+}
+
+function openPasswordModal(userId) {
+  passwordUserId = userId;
+  const user = users.find(item => Number(item.id) === Number(userId));
+  el('passwordModalTitle').textContent = `Change Password${user?.name ? ` - ${user.name}` : ''}`;
+  el('passwordForm').reset();
+  setPasswordModalMessage('');
+  passwordModal.classList.remove('hidden');
+  setTimeout(() => {
+    passwordModalContent.classList.remove('scale-95', 'opacity-0');
+    passwordModalContent.classList.add('scale-100', 'opacity-100');
+  }, 10);
+}
+
+function closePasswordModal() {
+  passwordModalContent.classList.remove('scale-100', 'opacity-100');
+  passwordModalContent.classList.add('scale-95', 'opacity-0');
+  setTimeout(() => {
+    passwordModal.classList.add('hidden');
+    passwordUserId = null;
+  }, 300);
+}
+
+async function handlePasswordSubmit(e) {
+  e.preventDefault();
+  const newPassword = el('newPassword').value;
+  const confirmPassword = el('confirmPassword').value;
+
+  if (!passwordUserId) {
+    setPasswordModalMessage('User selection is missing.');
+    return;
+  }
+  if (newPassword.length < 6) {
+    setPasswordModalMessage('Password must be at least 6 characters long.');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    setPasswordModalMessage('Passwords must match.');
+    return;
+  }
+
+  try {
+    const result = await fetchWithAuth('/api/admin/users/update-password', {
+      method: 'POST',
+      body: JSON.stringify({ userId: passwordUserId, password: newPassword })
+    });
+    setPasswordModalMessage(result?.message || 'Password updated successfully', 'success');
+    setTimeout(closePasswordModal, 700);
+  } catch (err) {
+    setPasswordModalMessage(err.message || 'Unable to update password.');
+  }
+}
+
+async function deleteUser(id) {
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  try {
+    const result = await fetchWithAuth('/api/admin/users/delete', {
+      method: 'POST',
+      body: JSON.stringify({ userId: id })
+    });
+    users = users.filter(user => Number(user.id) !== Number(id));
+    visibleUsers = visibleUsers.filter(user => Number(user.id) !== Number(id));
+    renderUserRows(visibleUsers);
+    await loadStats();
+    alert(result?.message || 'User deleted successfully');
+  } catch (err) {
+    alert(err.message || 'Unable to delete user.');
+  }
+}
+
 // --- Modal Logic ---
 const modal = el('modalOverlay');
 const modalContent = el('modalContent');
@@ -194,22 +452,23 @@ function openModal(id = null) {
   
   // Populate categories in select
   el('recipeCategory').innerHTML = '<option value="">Select Category</option>' + optionCats('');
+  el('recipeCuisine').innerHTML = '<option value="">Select Cuisine</option>' + optionCuisines('');
 
   if (id) {
     const r = recipes.find(x => x.id === id);
     if (r) {
         // We need full details for ingredients
-        fetchWithAuth(`/api/recipes/${id}`).then(detail => {
+        fetchWithAuth(`/api/recipes/${id}?trackView=false`).then(detail => {
             el('title').value = detail.title || '';
             el('description').value = detail.description || '';
             el('steps').value = detail.steps || '';
             el('cook_time').value = detail.cook_time || 0;
             el('difficulty').value = detail.difficulty || 'Medium';
-            el('cuisine').value = detail.cuisine || '';
-            el('veg_type').value = detail.veg_type || 'veg';
+            el('recipeCuisine').value = detail.cuisine_id || '';
+            el('type').value = detail.type || detail.veg_type || 'veg';
             el('image_url').value = detail.image_url || '';
             el('recipeCategory').value = detail.category_id || '';
-            el('ingredients').value = (detail.ingredients || []).map(i => i.name).join(', ');
+            el('ingredients').value = (detail.ingredients || []).map(i => i.display_text || i.name).join('\n');
         });
     }
   }
@@ -243,8 +502,8 @@ async function handleRecipeSubmit(e) {
     steps: el('steps').value.trim(),
     cook_time: parseInt(el('cook_time').value || '0', 10),
     difficulty: el('difficulty').value.trim(),
-    cuisine: el('cuisine').value.trim(),
-    veg_type: el('veg_type').value,
+    cuisine_id: el('recipeCuisine').value ? parseInt(el('recipeCuisine').value, 10) : null,
+    type: el('type').value,
     image_url: el('image_url').value.trim(),
     category_id: el('recipeCategory').value ? parseInt(el('recipeCategory').value, 10) : null,
     ingredients: el('ingredients').value.trim()
@@ -276,11 +535,8 @@ async function handleRecipeSubmit(e) {
       throw new Error('Image URL is required');
     }
     
-    // Validate URL format
-    try {
-      new URL(payload.image_url);
-    } catch {
-      throw new Error('Image URL must be a valid URL (e.g., https://example.com/image.jpg)');
+    if (!isValidRecipeImagePath(payload.image_url)) {
+      throw new Error('Image must be a valid URL or local path (e.g., https://example.com/image.jpg or /images/recipe.jpg)');
     }
     
     const validDifficulties = ['Easy', 'Medium', 'Hard'];
@@ -288,9 +544,9 @@ async function handleRecipeSubmit(e) {
       throw new Error('Difficulty must be Easy, Medium, or Hard');
     }
     
-    const validVegTypes = ['veg', 'non-veg'];
-    if (!validVegTypes.includes(payload.veg_type)) {
-      throw new Error('Dietary type must be veg or non-veg');
+    const validTypes = ['veg', 'nonveg', 'vegan'];
+    if (!validTypes.includes(payload.type)) {
+      throw new Error('Type must be veg, nonveg, or vegan');
     }
     
     if (editingId) {
@@ -314,6 +570,11 @@ async function handleRecipeSubmit(e) {
 async function loadCategories() {
   categories = await fetchWithAuth('/api/categories');
   renderCategoriesList();
+}
+
+async function loadCuisines() {
+  cuisines = await fetchWithAuth('/api/cuisines');
+  renderCuisinesList();
 }
 
 function renderCategoriesList() {
@@ -364,6 +625,54 @@ async function deleteCategory(id) {
   } catch (err) { alert(err.message); }
 }
 
+function renderCuisinesList() {
+  el('cuisinesList').innerHTML = cuisines.map(c => `
+    <div class="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+      <div class="font-medium text-slate-900">${c.name}</div>
+      <div class="flex gap-2">
+        <button class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 px-3 py-1.5 rounded-md editCuisineBtn" data-id="${c.id}">Edit</button>
+        <button class="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 px-3 py-1.5 rounded-md delCuisineBtn" data-id="${c.id}">Delete</button>
+      </div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.editCuisineBtn').forEach(b => b.addEventListener('click', () => editCuisine(parseInt(b.dataset.id, 10))));
+  document.querySelectorAll('.delCuisineBtn').forEach(b => b.addEventListener('click', () => deleteCuisine(parseInt(b.dataset.id, 10))));
+}
+
+async function createCuisine() {
+  const name = el('newCuisine').value.trim();
+  if (!name) return;
+  try {
+    await fetchWithAuth('/api/admin/cuisines', { method: 'POST', body: JSON.stringify({ name }) });
+    el('newCuisine').value = '';
+    await loadCuisines();
+    await loadStats();
+  } catch (err) { alert(err.message); }
+}
+
+async function editCuisine(id) {
+  const c = cuisines.find(x => x.id === id);
+  if (!c) return;
+  const name = prompt('New cuisine name:', c.name);
+  if (!name) return;
+  try {
+    await fetchWithAuth(`/api/admin/cuisines/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
+    await loadCuisines();
+    await loadRecipes();
+  } catch (err) { alert(err.message); }
+}
+
+async function deleteCuisine(id) {
+  if (!confirm('Delete this cuisine?')) return;
+  try {
+    await fetchWithAuth(`/api/admin/cuisines/${id}`, { method: 'DELETE' });
+    await loadCuisines();
+    await loadRecipes();
+    await loadStats();
+  } catch (err) { alert(err.message); }
+}
+
 // --- Init ---
 export async function initAdmin() {
   if (!requireAdmin()) return; // Auth check
@@ -379,6 +688,13 @@ export async function initAdmin() {
   el('recipeForm').addEventListener('submit', handleRecipeSubmit);
   
   el('createCatBtn').addEventListener('click', createCategory);
+  el('createCuisineBtn').addEventListener('click', createCuisine);
+  el('closePasswordModalBtn').addEventListener('click', closePasswordModal);
+  el('cancelPasswordModalBtn').addEventListener('click', closePasswordModal);
+  el('passwordModalOverlay').addEventListener('click', (e) => {
+      if(e.target === el('passwordModalOverlay')) closePasswordModal();
+  });
+  el('passwordForm').addEventListener('submit', handlePasswordSubmit);
 
   el('logoutBtn').addEventListener('click', () => {
       clearAuth();
@@ -386,10 +702,11 @@ export async function initAdmin() {
   });
 
   // Initial Data
-  await loadCategories(); // needed for recipes options logic
+  await Promise.all([loadCategories(), loadCuisines()]); // needed for recipes options logic
   await Promise.all([
       loadStats(),
-      loadRecipes()
+      loadRecipes(),
+      loadUsers()
   ]);
 
   // Force default view to ensure title/classes match logic
@@ -399,5 +716,9 @@ export async function initAdmin() {
   if (searchInput) {
     searchInput.addEventListener('input', debounce(applyRecipeSearch, 250));
   }
-}
 
+  const userSearch = el('userSearch');
+  if (userSearch) {
+    userSearch.addEventListener('input', debounce(applyUserSearch, 250));
+  }
+}

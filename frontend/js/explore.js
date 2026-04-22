@@ -6,7 +6,7 @@ let state = {
   q: "",
   cuisine: "",
   difficulty: "",
-  veg_type: "",
+  type: "",
   maxTime: "",
   category: "",
   page: 1,
@@ -24,6 +24,16 @@ function qs(params) {
   return p.toString();
 }
 
+function uniqueRecipesById(recipes) {
+  const seen = new Set();
+  return recipes.filter((recipe) => {
+    const id = String(recipe?.id || "");
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
 function normalizeText(value) {
   return String(value || "").toLowerCase().trim();
 }
@@ -36,7 +46,24 @@ function normalizeDifficulty(value) {
   return "";
 }
 
+function normalizeRecipeType(value) {
+  const v = normalizeText(value);
+  if (v === "non-veg") return "nonveg";
+  return v;
+}
+
+function formatRecipeType(value) {
+  const type = normalizeRecipeType(value);
+  const map = {
+    veg: { label: "Vegetarian", className: "bg-green-500 border-green-500" },
+    nonveg: { label: "Non-Veg", className: "bg-red-500 border-red-500" },
+    vegan: { label: "Vegan", className: "bg-emerald-600 border-emerald-600" }
+  };
+  return map[type] || { label: "Recipe", className: "bg-slate-500 border-slate-500" };
+}
+
 function recipeCard(r) {
+  const typeMeta = formatRecipeType(r.type || r.veg_type);
   const imageUrl = normalizeImageUrl(r.image_url);
   const imageSources = buildImageSources({ url: imageUrl, title: r.title, id: r.id });
   const rating = r.avg_rating
@@ -47,8 +74,8 @@ function recipeCard(r) {
     : `<span class="text-xs text-slate-400 font-medium">Not rated</span>`;
 
   return `
-  <a href="recipe.html?id=${r.id}" class="group block rounded-2xl overflow-hidden bg-white shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-    <div class="aspect-[4/3] bg-brand-50 relative overflow-hidden">
+  <a href="recipe.html?id=${r.id}" class="recipe-card group block rounded-2xl overflow-hidden bg-white border border-slate-200/70 hover:-translate-y-1 transition-all duration-300">
+    <div class="recipe-media aspect-[4/3] relative overflow-hidden">
       ${
         imageSources.length
           ? `<img src="${imageSources[0]}" data-src="${imageUrl || ""}" data-title="${r.title}" data-id="${r.id}" data-fallback="recipe" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="${r.title}" />`
@@ -58,25 +85,24 @@ function recipeCard(r) {
     </div>
     <div class="p-5">
       <div class="flex items-start justify-between gap-3 mb-2">
-        <h3 class="font-bold text-lg text-slate-800 line-clamp-1 group-hover:text-brand-600 transition-colors font-display">${r.title}</h3>
+        <h3 class="font-bold text-lg text-slate-800 line-clamp-2 min-h-[3.25rem] group-hover:text-brand-600 transition-colors font-display">${r.title}</h3>
         ${rating}
       </div>
-      
       <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-500 mb-4">
-        <span class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+        <span class="recipe-meta-chip flex items-center gap-1 px-2 py-1 rounded-md">
           <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           ${r.cook_time} min
         </span>
-        <span class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+        <span class="recipe-meta-chip flex items-center gap-1 px-2 py-1 rounded-md">
            ${r.difficulty || "Medium"}
         </span>
-        <span class="px-2 py-1 rounded-md border text-white ${r.veg_type === "non-veg" ? "bg-red-500 border-red-500" : "bg-green-500 border-green-500"}">
-          ${r.veg_type === "non-veg" ? "Non-Veg" : "Veg"}
+        <span class="px-2 py-1 rounded-md border text-white ${typeMeta.className}">
+          ${typeMeta.label}
         </span>
       </div>
 
       <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-        <div class="text-xs text-slate-400 font-medium uppercase tracking-wide">${r.category_name || "General"}</div>
+        <div class="text-xs text-slate-400 font-medium uppercase tracking-wide">${r.category_name || "Recipe"}</div>
         <div class="text-brand-600 text-sm font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0 transition-all">
           View Recipe 
           <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
@@ -90,9 +116,60 @@ async function loadCategories() {
   const catSelect = document.getElementById("category");
   if (!catSelect) return;
   const cats = await fetchWithAuth("/api/categories");
+  const categoryGroup = document.getElementById("categoryFilterGroup");
+  const meaningfulCats = cats.filter((c) => normalizeText(c.name) !== "general");
+  if (!meaningfulCats.length) {
+    if (categoryGroup) categoryGroup.classList.add("hidden");
+    catSelect.innerHTML = `<option value="">All</option>`;
+    return;
+  }
+
+  if (categoryGroup) categoryGroup.classList.remove("hidden");
   catSelect.innerHTML =
     `<option value="">All</option>` +
-    cats.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+    meaningfulCats.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+}
+
+function populateSelect(select, values, { allLabel, formatter = (value) => value, selected = "" } = {}) {
+  if (!select) return;
+  const normalizedSelected = String(selected || "");
+  select.innerHTML =
+    `<option value="">${allLabel}</option>` +
+    values.map((value) => {
+      const isSelected = String(value) === normalizedSelected ? " selected" : "";
+      return `<option value="${value}"${isSelected}>${formatter(value)}</option>`;
+    }).join("");
+}
+
+function populateDynamicFilters() {
+  const cuisineSelect = document.getElementById("cuisine");
+  const typeSelect = document.getElementById("type");
+
+  const cuisines = Array.from(new Set(
+    allRecipes
+      .map((recipe) => String(recipe.cuisine || "").trim())
+      .filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b));
+
+  const types = Array.from(new Set(
+    allRecipes
+      .map((recipe) => normalizeRecipeType(recipe.type || recipe.veg_type))
+      .filter(Boolean)
+  ));
+
+  const typeOrder = ["veg", "nonveg", "vegan"];
+  types.sort((a, b) => typeOrder.indexOf(a) - typeOrder.indexOf(b));
+
+  populateSelect(cuisineSelect, cuisines, {
+    allLabel: "All Cuisines",
+    selected: state.cuisine
+  });
+
+  populateSelect(typeSelect, types, {
+    allLabel: "Any",
+    selected: state.type,
+    formatter: (value) => formatRecipeType(value).label
+  });
 }
 
 function loadRecipes() {
@@ -118,10 +195,15 @@ function loadRecipes() {
 
   if (!recipes.length) {
       status.textContent = "No results found.";
+      grid.innerHTML = `
+        <div class="empty-state sm:col-span-2 xl:col-span-3">
+          <div class="font-display text-lg font-bold text-slate-800 mb-1">No recipes match these filters.</div>
+          <p class="text-sm">Try a different keyword, cuisine, difficulty, or cooking time.</p>
+        </div>`;
   } else {
     status.textContent = "";
+    grid.innerHTML = recipes.map(recipeCard).join("");
   }
-  grid.innerHTML = recipes.map(recipeCard).join("");
   attachImageFallbacks(grid);
 
   pageInfo.textContent = `Page ${page} / ${totalPages} (Total: ${total})`;
@@ -148,7 +230,7 @@ async function ensureAllRecipes() {
           ? first.recipes
           : [];
 
-    allRecipes = firstPage.slice();
+    allRecipes = uniqueRecipesById(firstPage);
 
     if (pagination && pagination.totalPages > 1) {
       const pages = [];
@@ -164,7 +246,7 @@ async function ensureAllRecipes() {
             : Array.isArray(res?.recipes)
               ? res.recipes
               : [];
-        allRecipes = allRecipes.concat(rows);
+        allRecipes = uniqueRecipesById(allRecipes.concat(rows));
       });
     }
   } catch (err) {
@@ -182,13 +264,15 @@ function applyFilters() {
   const selectedCuisine = normalizeText(form.cuisine.value);
   const selectedDifficultyRaw = normalizeText(form.difficulty.value);
   const selectedDifficulty = selectedDifficultyRaw === "any" ? "" : normalizeDifficulty(selectedDifficultyRaw);
-  const selectedVeg = normalizeText(form.veg_type.value);
+  const selectedType = normalizeRecipeType(form.type.value);
+  const selectedMaxTime = parseInt(form.maxTime.value || "", 10);
 
   state.q = searchText;
   state.category = form.category.value;
   state.cuisine = form.cuisine.value;
   state.difficulty = form.difficulty.value;
-  state.veg_type = form.veg_type.value;
+  state.type = form.type.value;
+  state.maxTime = form.maxTime.value;
   state.page = 1;
 
   filteredRecipes = allRecipes.filter((r) => {
@@ -219,9 +303,14 @@ function applyFilters() {
       if (difficulty !== selectedDifficulty) return false;
     }
 
-    if (selectedVeg) {
-      const veg = normalizeText(r.veg_type);
-      if (veg !== selectedVeg) return false;
+    if (selectedType) {
+      const recipeType = normalizeRecipeType(r.type || r.veg_type);
+      if (recipeType !== selectedType) return false;
+    }
+
+    if (Number.isFinite(selectedMaxTime) && selectedMaxTime > 0) {
+      const cookTime = parseInt(r.cook_time, 10);
+      if (!Number.isFinite(cookTime) || cookTime > selectedMaxTime) return false;
     }
 
     return true;
@@ -231,15 +320,20 @@ function applyFilters() {
 }
 
 function scrollGridToTop() {
-  const header = document.getElementById("exploreHeader");
-  if (header) {
-    header.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-  const grid = document.getElementById("recipesGrid");
-  if (grid) {
-    grid.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  const target = document.getElementById("exploreHeader") || document.getElementById("recipesGrid");
+  const top = target
+    ? target.getBoundingClientRect().top + window.scrollY - 88
+    : 0;
+
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+  });
+}
+
+function goToPage(page) {
+  state.page = page;
+  loadRecipes();
+  scrollGridToTop();
 }
 
 function bindUI() {
@@ -254,44 +348,38 @@ function bindUI() {
     applyFilters();
   });
 
-  // Also update search state on change/blur if desired, but button is usually explicit
-  document.getElementById("searchBtn").addEventListener("click", () => {
-    applyFilters();
-  });
+  const searchBtn = document.getElementById("searchBtn");
+  if (searchBtn) {
+    searchBtn.addEventListener("click", () => {
+      applyFilters();
+    });
+  }
 
   const prevBtn = document.getElementById("prevBtn");
   if (prevBtn) {
     prevBtn.addEventListener("click", () => {
-      state.page = Math.max(1, state.page - 1);
-      loadRecipes();
-      scrollGridToTop();
+      goToPage(Math.max(1, state.page - 1));
     });
   }
 
   const nextBtn = document.getElementById("nextBtn");
   if (nextBtn) {
     nextBtn.addEventListener("click", () => {
-      state.page += 1;
-      loadRecipes();
-      scrollGridToTop();
+      goToPage(state.page + 1);
     });
   }
 
   const nextBottom = document.getElementById("nextBtnBottom");
   if (nextBottom) {
     nextBottom.addEventListener("click", () => {
-      state.page += 1;
-      loadRecipes();
-      scrollGridToTop();
+      goToPage(state.page + 1);
     });
   }
 
   const prevBottom = document.getElementById("prevBtnBottom");
   if (prevBottom) {
     prevBottom.addEventListener("click", () => {
-      state.page = Math.max(1, state.page - 1);
-      loadRecipes();
-      scrollGridToTop();
+      goToPage(Math.max(1, state.page - 1));
     });
   }
 
@@ -303,7 +391,7 @@ function bindUI() {
       q: "",
       cuisine: "",
       difficulty: "",
-      veg_type: "",
+      type: "",
       maxTime: "",
       category: "",
       page: 1,
@@ -327,5 +415,6 @@ export async function initExplore() {
   initFromQuery(); // Grab ?q=...
   bindUI();
   await ensureAllRecipes();
+  populateDynamicFilters();
   applyFilters();
 }

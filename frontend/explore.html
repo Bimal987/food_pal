@@ -44,22 +44,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/tailwind.css">
   <style>
     body { font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh; }
     h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Outfit', sans-serif; }
     .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5); }
     .hero-pattern { background-color: #f0fdf4; background-image: radial-gradient(#16a34a 0.5px, transparent 0.5px); background-size: 10px 10px; }
+    .explore-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 280px)); }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 selection:bg-brand-500 selection:text-white antialiased">
+<body class="bg-[#F5F1E8] text-slate-800 selection:bg-brand-500 selection:text-white antialiased">
   <div class="min-h-screen flex flex-col">
-    <header id="navbar" class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50 transition-all duration-300"></header>
+    <header id="navbar" class="bg-white/80 backdrop-blur-md border-b border-white/60 sticky top-0 z-50 transition-all duration-300"></header>
 
-    <main class="flex-1 w-full px-4 sm:px-6 lg:px-8 py-10 animate-slide-up">
-    <div class="flex flex-col items-start lg:flex-row gap-8 xl:gap-12">
+    <main class="flex-1 user-shell mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 animate-slide-up">
+    <div class="flex flex-col items-start lg:flex-row gap-7 xl:gap-10">
       <!-- Filters Sidebar -->
       <aside class="lg:w-72 flex-shrink-0">
-        <div class="sticky top-24 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain">
+        <div class="sticky top-24 panel-card rounded-2xl p-5 sm:p-6 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain">
           <div class="flex items-center justify-between mb-6">
             <h2 class="font-bold text-lg font-display text-slate-900 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-brand-500" viewBox="0 0 20 20" fill="currentColor">
@@ -73,26 +75,20 @@
           <form id="filtersForm" class="space-y-6">
             <div class="space-y-2">
               <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Search</label>
-              <input id="searchInput" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all" placeholder="Keywords..." />
+              <input id="searchInput" class="form-control w-full px-3 py-2.5 text-sm" placeholder="Keywords..." />
             </div>
 
-            <div class="space-y-2">
+            <div id="categoryFilterGroup" class="space-y-2">
               <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Category</label>
-              <select id="category" name="category" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all hover:bg-white">
+              <select id="category" name="category" class="form-control w-full px-3 py-2.5 text-sm hover:bg-white">
                 <option value="">All Categories</option>
               </select>
             </div>
 
             <div class="space-y-2">
               <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cuisine</label>
-              <select id="cuisine" name="cuisine" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all hover:bg-white">
+              <select id="cuisine" name="cuisine" class="form-control w-full px-3 py-2.5 text-sm hover:bg-white">
                 <option value="">All Cuisines</option>
-                <option>Nepali</option>
-                <option>Indian</option>
-                <option>Chinese</option>
-                <option>Italian</option>
-                <option>American</option>
-                <option>International</option>
               </select>
             </div>
 
@@ -119,29 +115,28 @@
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Dietary Preference</label>
-              <select id="veg_type" name="veg_type" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all hover:bg-white">
+              <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Recipe Type</label>
+              <select id="type" name="type" class="form-control w-full px-3 py-2.5 text-sm hover:bg-white">
                 <option value="">Any</option>
                 <option value="veg">Vegetarian</option>
-                <option value="non-veg">Non-Vegetarian</option>
+                <option value="nonveg">Non-Vegetarian</option>
+                <option value="vegan">Vegan</option>
               </select>
             </div>
 
             <div class="space-y-2">
               <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">Max Time (Mins)</label>
-              <input id="maxTime" name="maxTime" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all" placeholder="e.g. 45" />
+              <input id="maxTime" name="maxTime" type="number" min="0" class="form-control w-full px-3 py-2.5 text-sm" placeholder="e.g. 45" />
             </div>
-            
-            <button id="searchBtn" type="button" class="w-full bg-slate-900 text-white py-2.5 rounded-lg font-bold hover:bg-slate-800 transition-colors">Apply Filters</button>
           </form>
         </div>
       </aside>
 
       <!-- Results Grid -->
       <section class="flex-1 min-w-0">
-        <div id="exploreHeader" class="flex items-center justify-between mb-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div id="exploreHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 panel-card p-4 rounded-2xl">
           <div class="flex items-center gap-2">
-             <h2 class="text-xl font-bold font-display text-slate-900">Explore Recipes</h2>
+             <h2 class="text-xl font-bold font-display text-slate-900 section-title">Explore Recipes</h2>
              <div id="status" class="text-sm font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full ml-2 empty:hidden"></div>
           </div>
           
@@ -150,17 +145,17 @@
           </div>
         </div>
 
-        <div id="recipesGrid" class="grid w-full content-start grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-6">
+        <div id="recipesGrid" class="explore-grid grid w-full content-start justify-start gap-5 xl:gap-6">
            <!-- Recipes injected here -->
         </div>
 
         <div class="flex justify-between mt-6">
-          <button id="prevBtnBottom" class="flex items-center gap-1 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:shadow-[0_0_14px_rgba(239,68,68,0.75)] active:border-red-500">
+          <button id="prevBtnBottom" class="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#FFFDF8] border border-[#D8CFC0] text-sm font-medium hover:bg-white hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:shadow-[0_0_14px_rgba(239,68,68,0.75)] active:border-red-500">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             <span>Prev</span>
           </button>
           <div class="flex-1"></div>
-          <button id="nextBtnBottom" class="flex items-center gap-1 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:shadow-[0_0_14px_rgba(0,0,0,0.7)] active:border-slate-900">
+          <button id="nextBtnBottom" class="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#FFFDF8] border border-[#D8CFC0] text-sm font-medium hover:bg-white hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:shadow-[0_0_14px_rgba(0,0,0,0.7)] active:border-slate-900">
             <span>Next</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
           </button>
@@ -169,7 +164,7 @@
     </div>
     </main>
   
-    <footer class="bg-white border-t border-slate-100 py-12 mt-12 text-center text-slate-400 text-sm">
+    <footer class="bg-[#10151A] border-t border-[#1f2a35] py-12 mt-12 text-center text-slate-400 text-sm">
       &copy; 2026 Food Pal. All rights reserved.
     </footer>
   </div>

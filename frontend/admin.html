@@ -31,9 +31,60 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
     h1, h2, h3, h4, h5, h6, .font-display { font-family: 'Outfit', sans-serif; }
+    .dashboard-hero {
+      background:
+        radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 30%),
+        linear-gradient(135deg, #0f172a 0%, #1e293b 58%, #0f766e 100%);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 1.25rem;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+    }
+    .dashboard-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.09);
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .dashboard-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 48px rgba(15, 23, 42, 0.13);
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+    .dashboard-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -28px -36px auto;
+      width: 120px;
+      height: 120px;
+      border-radius: 999px;
+      opacity: 0.18;
+      pointer-events: none;
+    }
+    .dashboard-card-green::after { background: #22c55e; }
+    .dashboard-card-amber::after { background: #f59e0b; }
+    .dashboard-card-sky::after { background: #0ea5e9; }
+    .dashboard-welcome,
+    .dashboard-panel,
+    .dashboard-mini-stat {
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    }
+    .dashboard-panel {
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: 1rem;
+    }
+    .dashboard-list-item {
+      border: 1px solid rgba(226, 232, 240, 0.85);
+      background: rgba(255, 255, 255, 0.86);
+    }
+    .dashboard-empty {
+      border: 1px dashed rgba(148, 163, 184, 0.5);
+      background: rgba(248, 250, 252, 0.9);
+    }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 flex h-screen overflow-hidden">
+<body class="bg-[#F5F1E8] text-slate-900 flex h-screen overflow-hidden">
   
   <!-- Sidebar -->
   <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 transition-all duration-300">
@@ -48,6 +99,13 @@
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
         Dashboard
       </button>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-left font-medium" data-view="users" data-route="/admin/users">
+        <svg class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 7.5a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 20.25a7.5 7.5 0 0115 0" />
+        </svg>
+        Users
+      </button>
       <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-left font-medium" data-view="recipes">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
         Recipes
@@ -55,6 +113,10 @@
       <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-left font-medium" data-view="categories">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
         Categories
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 hover:text-white transition-colors text-left font-medium" data-view="cuisines">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M6 11h12M9 15h6M5 19h14" /></svg>
+        Cuisines
       </button>
     </nav>
 
@@ -69,7 +131,7 @@
   <!-- Main Content -->
   <div class="flex-1 flex flex-col h-screen overflow-hidden">
     <!-- Topbar -->
-    <header class="h-16 bg-white border-b flex items-center justify-between px-8">
+    <header class="h-16 bg-white/80 backdrop-blur-md border-b border-white/60 flex items-center justify-between px-8">
       <h1 id="pageTitle" class="text-xl font-bold font-display text-slate-800">Overview</h1>
       <div class="flex items-center gap-4">
         <div class="text-sm text-right hidden sm:block">
@@ -83,28 +145,116 @@
     </header>
 
     <!-- Content Area -->
-    <main class="flex-1 overflow-auto p-8 bg-slate-50 relative">
+    <main class="flex-1 overflow-auto p-8 bg-[#F5F1E8] relative">
       
       <!-- DASHBOARD VIEW -->
-      <div id="view-dashboard" class="view-section space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <div class="text-slate-500 text-sm font-medium mb-1">Total Recipes</div>
-            <div class="text-3xl font-bold text-slate-900" id="stat-recipes">-</div>
-          </div>
-          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <div class="text-slate-500 text-sm font-medium mb-1">Total Users</div>
-            <div class="text-3xl font-bold text-slate-900" id="stat-users">-</div>
-          </div>
-          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <div class="text-slate-500 text-sm font-medium mb-1">Total Ratings</div>
-            <div class="text-3xl font-bold text-slate-900" id="stat-ratings">-</div>
-          </div>
-          <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <div class="text-slate-500 text-sm font-medium mb-1">Categories</div>
-            <div class="text-3xl font-bold text-slate-900" id="stat-categories">-</div>
-          </div>
-        </div>
+      <div id="view-dashboard" class="view-section space-y-5">
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <article class="dashboard-card dashboard-card-green bg-white p-5 rounded-2xl">
+            <div class="relative z-10 flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="text-slate-500 text-sm font-semibold mb-2">Total Users</div>
+                <div class="text-3xl font-extrabold font-display text-slate-900 tracking-tight" id="stat-users">-</div>
+                <div class="mt-2 text-sm text-slate-500">Registered normal users</div>
+              </div>
+              <div class="h-10 w-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m0-4a4 4 0 100-8 4 4 0 000 8zm8 0a4 4 0 100-8 4 4 0 000 8z" /></svg>
+              </div>
+            </div>
+          </article>
+
+          <article class="dashboard-card dashboard-card-amber bg-white p-5 rounded-2xl">
+            <div class="relative z-10 flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="text-slate-500 text-sm font-semibold mb-2">Total Recipes</div>
+                <div class="text-3xl font-extrabold font-display text-slate-900 tracking-tight" id="stat-recipes">-</div>
+                <div class="mt-2 text-sm text-slate-500">Recipes available in the system</div>
+              </div>
+              <div class="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253" /></svg>
+              </div>
+            </div>
+          </article>
+
+          <article class="dashboard-card dashboard-card-sky bg-white p-5 rounded-2xl md:col-span-2 xl:col-span-1">
+            <div class="relative z-10 flex flex-col h-full">
+              <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <div class="text-slate-500 text-sm font-semibold mb-2">Most Viewed Recipe</div>
+                  <div class="text-lg font-extrabold font-display text-slate-900 truncate" id="stat-most-viewed-title">-</div>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </div>
+              </div>
+              <div class="mt-4 rounded-xl bg-slate-50 border border-slate-100 px-4 py-2">
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Total views</div>
+                <div class="text-xl font-bold text-slate-900 mt-1" id="stat-most-viewed-count">-</div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <article class="dashboard-mini-stat bg-white rounded-2xl p-5">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Latest Added Recipe</div>
+            <div class="mt-2 font-display text-lg font-bold text-slate-900 truncate" id="quick-latest-recipe">-</div>
+          </article>
+          <article class="dashboard-mini-stat bg-white rounded-2xl p-5">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Categories</div>
+            <div class="mt-2 font-display text-2xl font-extrabold text-slate-900" id="quick-total-categories">-</div>
+          </article>
+          <article class="dashboard-mini-stat bg-white rounded-2xl p-5">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Cuisines</div>
+            <div class="mt-2 font-display text-2xl font-extrabold text-slate-900" id="quick-total-cuisines">-</div>
+          </article>
+        </section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <article class="dashboard-panel p-5 md:p-6">
+            <div class="flex items-center justify-between gap-3 mb-5">
+              <div>
+                <h3 class="font-display text-lg font-bold text-slate-900">Recent Recipes</h3>
+                <p class="text-sm text-slate-500 mt-1">Latest recipes added by admin</p>
+              </div>
+              <div class="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253" /></svg>
+              </div>
+            </div>
+            <div id="recentRecipesList" class="space-y-3"></div>
+          </article>
+
+          <article class="dashboard-panel p-5 md:p-6">
+            <div class="flex items-center justify-between gap-3 mb-5">
+              <div>
+                <h3 class="font-display text-lg font-bold text-slate-900">Recent Users</h3>
+                <p class="text-sm text-slate-500 mt-1">Newest registered users</p>
+              </div>
+              <div class="h-10 w-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m0-4a4 4 0 100-8 4 4 0 000 8zm8 0a4 4 0 100-8 4 4 0 000 8z" /></svg>
+              </div>
+            </div>
+            <div id="recentUsersList" class="space-y-3"></div>
+          </article>
+
+          <article class="dashboard-panel p-5 md:p-6">
+            <div class="flex items-center justify-between gap-3 mb-5">
+              <div>
+                <h3 class="font-display text-lg font-bold text-slate-900">Top Category</h3>
+                <p class="text-sm text-slate-500 mt-1">Category with most recipes</p>
+              </div>
+              <div class="h-10 w-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+              </div>
+            </div>
+            <div class="rounded-2xl bg-white border border-slate-100 p-5">
+              <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Leading category</div>
+              <div class="mt-3 font-display text-2xl font-extrabold text-slate-900 truncate" id="topCategoryName">-</div>
+              <div class="mt-2 text-sm font-semibold text-slate-500" id="topCategoryCount">-</div>
+            </div>
+          </article>
+        </section>
+
       </div>
 
       <!-- RECIPES VIEW -->
@@ -135,8 +285,31 @@
         </div>
       </div>
 
+      <!-- USERS VIEW -->
+      <div id="view-users" class="view-section hidden flex flex-col h-full">
+        <div class="flex justify-between mb-6">
+          <input id="userSearch" type="text" placeholder="Search users..." class="border rounded-lg px-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div class="bg-white border rounded-xl overflow-hidden shadow-sm flex-1">
+          <div class="overflow-auto h-full">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-slate-50 text-slate-500 uppercase text-xs sticky top-0">
+                <tr>
+                  <th class="p-4 font-semibold border-b">ID</th>
+                  <th class="p-4 font-semibold border-b">Username</th>
+                  <th class="p-4 font-semibold border-b">Email</th>
+                  <th class="p-4 font-semibold border-b">Created Date</th>
+                  <th class="p-4 font-semibold border-b">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- CATEGORIES VIEW -->
-      <div id="view-categories" class="view-section hidden max-w-2xl">
+      <div id="view-categories" class="view-section hidden w-full max-w-5xl mx-auto">
         <div class="bg-white border rounded-xl p-6 shadow-sm mb-6">
           <h3 class="font-bold text-lg mb-4">Add New Category</h3>
           <div class="flex gap-4">
@@ -150,7 +323,49 @@
         </div>
       </div>
 
+      <!-- CUISINES VIEW -->
+      <div id="view-cuisines" class="view-section hidden w-full max-w-5xl mx-auto">
+        <div class="bg-white border rounded-xl p-6 shadow-sm mb-6">
+          <h3 class="font-bold text-lg mb-4">Add New Cuisine</h3>
+          <div class="flex gap-4">
+            <input id="newCuisine" class="flex-1 border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="Cuisine name" />
+            <button id="createCuisineBtn" class="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">Add</button>
+          </div>
+        </div>
+        <div class="bg-white border rounded-xl overflow-hidden shadow-sm">
+           <div class="p-4 bg-slate-50 border-b font-medium text-slate-500 text-sm">Existing Cuisines</div>
+           <div id="cuisinesList" class="divide-y divide-slate-100"></div>
+        </div>
+      </div>
+
     </main>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div id="passwordModalOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all scale-95 opacity-0" id="passwordModalContent">
+      <div class="p-6 border-b flex justify-between items-center">
+        <h2 id="passwordModalTitle" class="text-xl font-bold font-display">Change Password</h2>
+        <button id="closePasswordModalBtn" class="text-slate-400 hover:text-slate-600"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="p-6">
+        <form id="passwordForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">New Password</label>
+            <input id="newPassword" type="password" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" autocomplete="new-password" required />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Confirm Password</label>
+            <input id="confirmPassword" type="password" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" autocomplete="new-password" required />
+          </div>
+          <p id="passwordModalMessage" class="hidden text-sm font-medium"></p>
+          <div class="pt-2 flex justify-end gap-3">
+            <button type="button" id="cancelPasswordModalBtn" class="px-4 py-2 border rounded-lg text-slate-600 font-medium hover:bg-slate-50">Cancel</button>
+            <button type="submit" class="px-6 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800">Update Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <!-- Modal -->
@@ -173,7 +388,7 @@
              </div>
              <div>
                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cuisine</label>
-               <input id="cuisine" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" />
+               <select id="recipeCuisine" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none"></select>
              </div>
              <div>
                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Difficulty</label>
@@ -184,10 +399,11 @@
                </select>
              </div>
              <div>
-               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Dietary</label>
-               <select id="veg_type" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none">
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Type</label>
+               <select id="type" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none">
                  <option value="veg">Vegetarian</option>
-                 <option value="non-veg">Non-Vegetarian</option>
+                 <option value="nonveg">Non-Vegetarian</option>
+                 <option value="vegan">Vegan</option>
                </select>
              </div>
              <div>
@@ -195,8 +411,8 @@
                <input id="cook_time" type="number" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" />
              </div>
              <div class="col-span-2">
-               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Image URL</label>
-               <input id="image_url" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://..." />
+               <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Image URL or Local Path</label>
+               <input id="image_url" class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://... or /images/recipe.jpg" />
              </div>
              <div class="col-span-2">
                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
